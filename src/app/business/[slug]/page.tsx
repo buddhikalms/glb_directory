@@ -1,0 +1,270 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import Navbar from "@/components/public/Navbar";
+import Footer from "@/components/public/Footer";
+import {
+  ProductCard,
+  MenuItemCard,
+  ServiceCard,
+} from "@/components/ui/Components";
+import {
+  getBusinessBySlug,
+  getProductsByBusinessId,
+  getMenuItemsByBusinessId,
+  getServicesByBusinessId,
+  getCategoryById,
+  getBadgeById,
+} from "@/data/mockData";
+
+export default function BusinessPage() {
+  const params = useParams();
+  const slug = params.slug as string;
+  const business = getBusinessBySlug(slug);
+  const [activeTab, setActiveTab] = useState<
+    "about" | "products" | "menu" | "services"
+  >("about");
+
+  if (!business) {
+    return (
+      <>
+        <Navbar />
+        <main className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">
+              Business Not Found
+            </h1>
+            <p className="text-lg text-gray-600 mb-8">
+              The business you're looking for doesn't exist.
+            </p>
+            <Link href="/directory" className="btn-primary">
+              Back to Directory
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
+  const category = getCategoryById(business.categoryId);
+  const products = getProductsByBusinessId(business.id);
+  const menuItems = getMenuItemsByBusinessId(business.id);
+  const services = getServicesByBusinessId(business.id);
+
+  return (
+    <>
+      <Navbar />
+      <main className="min-h-screen bg-stone-50">
+        {/* Cover Image */}
+        <div className="relative h-96 overflow-hidden bg-gradient-to-b from-emerald-200 to-emerald-50">
+          <img
+            src={business.coverImage}
+            alt={business.name}
+            className="w-full h-full object-cover"
+          />
+        </div>
+
+        {/* Business Header */}
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-6xl mx-auto px-4 py-8">
+            <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-end mb-6">
+              <div className="relative -mt-32">
+                <img
+                  src={business.logo}
+                  alt={business.name}
+                  className="w-40 h-40 rounded-2xl border-4 border-white shadow-lg object-cover"
+                />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <h1 className="font-display text-4xl font-bold text-gray-900">
+                      {business.name}
+                    </h1>
+                    {category && (
+                      <p className="text-lg text-emerald-600 font-semibold mt-1">
+                        {category.icon} {category.name}
+                      </p>
+                    )}
+                  </div>
+                  {business.featured && (
+                    <div className="bg-emerald-600 text-white px-4 py-2 rounded-full text-sm font-semibold">
+                      Featured
+                    </div>
+                  )}
+                </div>
+                <p className="text-xl text-gray-600 mb-4">{business.tagline}</p>
+                {business.badges.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {business.badges.map((badgeId) => {
+                      const badge = getBadgeById(badgeId);
+                      return badge ? (
+                        <div
+                          key={badgeId}
+                          className={`px-3 py-1 rounded-full text-sm font-semibold text-white bg-emerald-600`}
+                        >
+                          {badge.icon} {badge.name}
+                        </div>
+                      ) : null;
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Contact Info */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {business.contact.phone && (
+                <a
+                  href={`tel:${business.contact.phone}`}
+                  className="flex items-center text-gray-700 hover:text-emerald-600"
+                >
+                  <span className="mr-2 text-xl">📞</span>
+                  <span>{business.contact.phone}</span>
+                </a>
+              )}
+              {business.contact.email && (
+                <a
+                  href={`mailto:${business.contact.email}`}
+                  className="flex items-center text-gray-700 hover:text-emerald-600"
+                >
+                  <span className="mr-2 text-xl">📧</span>
+                  <span>{business.contact.email}</span>
+                </a>
+              )}
+              {business.location.city && (
+                <div className="flex items-center text-gray-700">
+                  <span className="mr-2 text-xl">📍</span>
+                  <span>
+                    {business.location.city}, {business.location.postcode}
+                  </span>
+                </div>
+              )}
+              {business.contact.website && (
+                <a
+                  href={business.contact.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center text-gray-700 hover:text-emerald-600"
+                >
+                  <span className="mr-2 text-xl">🌐</span>
+                  <span>Visit Website</span>
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="bg-white border-b border-gray-200 sticky top-16 z-10">
+          <div className="max-w-6xl mx-auto px-4">
+            <div className="flex gap-8">
+              {["about", "products", "menu", "services"].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab as any)}
+                  className={`py-4 px-2 font-semibold border-b-2 transition-all ${
+                    activeTab === tab
+                      ? "text-emerald-600 border-emerald-600"
+                      : "text-gray-600 border-transparent hover:text-emerald-600"
+                  }`}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="max-w-6xl mx-auto px-4 py-12">
+          {activeTab === "about" && (
+            <div className="bg-white rounded-2xl p-8 shadow-sm">
+              <h2 className="font-display text-2xl font-bold text-gray-900 mb-4">
+                About This Business
+              </h2>
+              <p className="text-gray-700 text-lg leading-relaxed mb-6">
+                {business.description}
+              </p>
+
+              {business.sustainability &&
+                business.sustainability.length > 0 && (
+                  <div>
+                    <h3 className="font-display text-xl font-bold text-gray-900 mb-4">
+                      Sustainability Features
+                    </h3>
+                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {business.sustainability.map((feature, idx) => (
+                        <li key={idx} className="flex items-start">
+                          <span className="text-emerald-600 mr-3 mt-1">✓</span>
+                          <span className="text-gray-700">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+            </div>
+          )}
+
+          {activeTab === "products" && (
+            <div>
+              {products.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {products.map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl p-8 text-center">
+                  <p className="text-gray-600 text-lg">
+                    No products available at this time.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "menu" && (
+            <div>
+              {menuItems.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {menuItems.map((item) => (
+                    <MenuItemCard key={item.id} item={item} />
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl p-8 text-center">
+                  <p className="text-gray-600 text-lg">
+                    No menu items available at this time.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "services" && (
+            <div>
+              {services.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {services.map((service) => (
+                    <ServiceCard key={service.id} service={service} />
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl p-8 text-center">
+                  <p className="text-gray-600 text-lg">
+                    No services available at this time.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </main>
+      <Footer />
+    </>
+  );
+}
