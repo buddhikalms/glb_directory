@@ -1,9 +1,4 @@
 {
-  "/admin/page": "app/admin/page.js",
-  "/admin/businesses/page": "app/admin/businesses/page.js",
-  "/admin/content/page": "app/admin/content/page.js",
-  "/admin/businesses/[id]/page": "app/admin/businesses/[id]/page.js",
-  "/admin/pricing/page": "app/admin/pricing/page.js",
   "/submit/page": "app/submit/page.js",
   "/page": "app/page.js"
 }
