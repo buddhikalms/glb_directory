@@ -1,16 +1,21 @@
-"use client";
-
 import Link from "next/link";
-import { useParams } from "next/navigation";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
 import { BusinessCard } from "@/components/ui/Components";
-import { businesses, getCategoryBySlug } from "@/data/mockData";
+import { businesses, categories, getCategoryBySlug } from "@/data/mockData";
 
-export default function CategoryPage() {
-  const params = useParams();
-  const slug = params.slug as string;
-  const category = getCategoryBySlug(slug);
+export const dynamicParams = false;
+
+export function generateStaticParams() {
+  return categories.map((category) => ({ slug: category.slug }));
+}
+
+export default function CategoryPage({
+  params,
+}: {
+  params: { slug: string };
+}) {
+  const category = getCategoryBySlug(params.slug);
 
   if (!category) {
     return (

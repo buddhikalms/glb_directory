@@ -7,6 +7,11 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
+  slug?: string;
+  avatar?: string;
+  bio?: string;
+  location?: string;
+  title?: string;
   businessId?: string;
 }
 
@@ -47,6 +52,7 @@ export interface Business {
   categoryId: string;
   logo: string;
   coverImage: string;
+  likes: number;
   location: {
     city: string;
     address: string;
@@ -97,6 +103,46 @@ export interface Service {
   name: string;
   description: string;
   pricing: string;
+}
+
+export interface Review {
+  id: string;
+  businessId: string;
+  authorName: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
+export interface NewsPost {
+  id: string;
+  title: string;
+  slug: string;
+  category: string;
+  authorSlug: string;
+  excerpt: string;
+  content: string;
+  coverImage: string;
+  author: string;
+  publishedAt: string;
+  readTime: string;
+  tags: string[];
+  featured?: boolean;
+}
+
+export interface AuthorProfile {
+  id: string;
+  name: string;
+  slug: string;
+  title: string;
+  bio: string;
+  avatar: string;
+  location?: string;
+  links?: {
+    website?: string;
+    twitter?: string;
+    linkedin?: string;
+  };
 }
 
 // Mock Categories
@@ -255,6 +301,7 @@ export const businesses: Business[] = [
     logo: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400",
     coverImage:
       "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200",
+    likes: 142,
     location: {
       city: "Brighton",
       address: "123 Green Street",
@@ -294,6 +341,7 @@ export const businesses: Business[] = [
     logo: "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=400",
     coverImage:
       "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=1200",
+    likes: 96,
     location: {
       city: "London",
       address: "45 Eco Lane",
@@ -332,6 +380,7 @@ export const businesses: Business[] = [
     logo: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400",
     coverImage:
       "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=1200",
+    likes: 74,
     location: {
       city: "Bristol",
       address: "78 Wellness Way",
@@ -456,6 +505,127 @@ export const services: Service[] = [
   },
 ];
 
+// Mock Reviews
+export const reviews: Review[] = [
+  {
+    id: "r1",
+    businessId: "1",
+    authorName: "Ella P.",
+    rating: 5,
+    comment:
+      "Fantastic food and genuinely sustainable practices. Love the refill station!",
+    createdAt: "2024-03-05",
+  },
+  {
+    id: "r2",
+    businessId: "1",
+    authorName: "Sam T.",
+    rating: 4,
+    comment: "Great atmosphere and staff. Slight wait on weekends.",
+    createdAt: "2024-03-12",
+  },
+  {
+    id: "r3",
+    businessId: "2",
+    authorName: "Nora W.",
+    rating: 5,
+    comment:
+      "Quality pieces and transparent sourcing. The repair program is a win.",
+    createdAt: "2024-02-28",
+  },
+  {
+    id: "r4",
+    businessId: "3",
+    authorName: "Jamie K.",
+    rating: 4,
+    comment: "Relaxing experience and refillable skincare options.",
+    createdAt: "2024-03-02",
+  },
+];
+
+// Mock News
+export const newsPosts: NewsPost[] = [
+  {
+    id: "1",
+    title: "Local Cafes Go Plastic-Free",
+    slug: "local-cafes-go-plastic-free",
+    category: "Community",
+    authorSlug: "green-living-team",
+    excerpt:
+      "A growing number of cafes are switching to compostable packaging and refill programs.",
+    content:
+      "Local cafes are embracing plastic-free operations by moving to compostable packaging, reusable cup programs, and refill stations.\n\nThese changes are reducing waste and encouraging customers to make more sustainable choices. Several businesses in the directory have already completed the transition and are sharing best practices with peers.\n\nIf you run a cafe or restaurant, consider starting with the highest-impact swaps: takeaway packaging, cutlery, and drink lids. Small changes add up quickly when made at scale.",
+    coverImage:
+      "https://images.unsplash.com/photo-1504754524776-8f4f37790ca0?w=1200",
+    author: "Green Living Directory",
+    publishedAt: "2024-02-10",
+    readTime: "5 min",
+    tags: ["cafes", "plastic-free", "community"],
+    featured: true,
+  },
+  {
+    id: "2",
+    title: "Sustainable Fashion Picks for Spring",
+    slug: "sustainable-fashion-picks-for-spring",
+    category: "Fashion",
+    authorSlug: "editorial-team",
+    excerpt:
+      "We rounded up ethical brands with fresh materials, fair wages, and low-impact shipping.",
+    content:
+      "This spring, sustainable fashion means organic fibers, recycled textiles, and transparency in sourcing.\n\nWe highlight several brands in the directory that prioritize fair wages, carbon-neutral delivery, and durable, timeless designs. Look for detailed material breakdowns and repair or take-back programs when making your picks.\n\nBuying fewer, better pieces remains the most sustainable option. Invest in quality and care for each item to extend its life.",
+    coverImage:
+      "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200",
+    author: "Editorial Team",
+    publishedAt: "2024-02-18",
+    readTime: "6 min",
+    tags: ["fashion", "ethical", "spring"],
+  },
+  {
+    id: "3",
+    title: "Wellness Studios Embrace Refill Culture",
+    slug: "wellness-studios-embrace-refill-culture",
+    category: "Wellness",
+    authorSlug: "green-living-team",
+    excerpt:
+      "Studios are offering refillable skincare and bulk essentials to cut waste.",
+    content:
+      "Beauty and wellness studios are introducing refill stations for skincare, soaps, and essential oils.\n\nCustomers can reuse containers while supporting businesses that prioritize waste reduction and mindful consumption. Many studios are pairing refills with ingredient transparency and locally sourced products.\n\nAsk your studio about refill incentives and bring-back discounts to make the switch even easier.",
+    coverImage:
+      "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=1200",
+    author: "Green Living Directory",
+    publishedAt: "2024-03-01",
+    readTime: "4 min",
+    tags: ["wellness", "refill", "zero-waste"],
+  },
+];
+
+// Mock Authors
+export const authors: AuthorProfile[] = [
+  {
+    id: "author1",
+    name: "Green Living Team",
+    slug: "green-living-team",
+    title: "Community Editors",
+    bio: "We highlight sustainable businesses, local initiatives, and practical tips for greener living.",
+    avatar:
+      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400",
+    location: "Brighton, UK",
+    links: {
+      website: "https://greenlivingblog.org.uk",
+    },
+  },
+  {
+    id: "author2",
+    name: "Editorial Team",
+    slug: "editorial-team",
+    title: "Research & Features",
+    bio: "Our editorial team covers sustainable fashion, ethical sourcing, and climate-conscious lifestyles.",
+    avatar:
+      "https://images.unsplash.com/photo-1525134479668-1bee5c7c6845?w=400",
+    location: "London, UK",
+  },
+];
+
 // Mock Users
 export const users: User[] = [
   {
@@ -463,6 +633,12 @@ export const users: User[] = [
     email: "admin@greenlivingblog.org.uk",
     name: "Admin User",
     role: "admin",
+    slug: "admin-user",
+    avatar:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400",
+    bio: "Keeping the directory verified and up to date.",
+    location: "Brighton, UK",
+    title: "Directory Administrator",
   },
   {
     id: "user1",
@@ -470,6 +646,12 @@ export const users: User[] = [
     name: "Sarah Green",
     role: "business_owner",
     businessId: "1",
+    slug: "sarah-green",
+    avatar:
+      "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=400",
+    bio: "Founder of Green Leaf Cafe and advocate for plant-based dining.",
+    location: "Brighton, UK",
+    title: "Cafe Owner",
   },
   {
     id: "user2",
@@ -477,6 +659,12 @@ export const users: User[] = [
     name: "Tom Earth",
     role: "business_owner",
     businessId: "2",
+    slug: "tom-earth",
+    avatar:
+      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400",
+    bio: "Designing ethical fashion with a focus on transparency.",
+    location: "London, UK",
+    title: "Founder, Earth & Thread",
   },
   {
     id: "user3",
@@ -484,6 +672,12 @@ export const users: User[] = [
     name: "Emma Pure",
     role: "business_owner",
     businessId: "3",
+    slug: "emma-pure",
+    avatar:
+      "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=400",
+    bio: "Holistic therapist committed to clean beauty and refill culture.",
+    location: "Bristol, UK",
+    title: "Wellness Studio Owner",
   },
 ];
 
@@ -502,9 +696,25 @@ export const getMenuItemsByBusinessId = (businessId: string) =>
   menuItems.filter((m) => m.businessId === businessId);
 export const getServicesByBusinessId = (businessId: string) =>
   services.filter((s) => s.businessId === businessId);
+export const getReviewsByBusinessId = (businessId: string) =>
+  reviews.filter((r) => r.businessId === businessId);
+export const getAverageRatingByBusinessId = (businessId: string) => {
+  const businessReviews = reviews.filter((r) => r.businessId === businessId);
+  if (businessReviews.length === 0) return 0;
+  const total = businessReviews.reduce((sum, review) => sum + review.rating, 0);
+  return total / businessReviews.length;
+};
+export const getReviewCountByBusinessId = (businessId: string) =>
+  reviews.filter((r) => r.businessId === businessId).length;
 export const getBadgeById = (id: string) => badges.find((b) => b.id === id);
 export const getUserById = (id: string) => users.find((u) => u.id === id);
+export const getUserBySlug = (slug: string) =>
+  users.find((u) => u.slug === slug);
 export const getPricingPackageById = (id: string) =>
   pricingPackages.find((p) => p.id === id);
 export const getActivePricingPackages = () =>
   pricingPackages.filter((p) => p.active);
+export const getNewsBySlug = (slug: string) =>
+  newsPosts.find((n) => n.slug === slug);
+export const getAuthorBySlug = (slug: string) =>
+  authors.find((a) => a.slug === slug);

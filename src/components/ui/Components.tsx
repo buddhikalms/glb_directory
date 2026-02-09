@@ -10,11 +10,15 @@ import {
   Badge,
   getBadgeById,
   getCategoryById,
+  getAverageRatingByBusinessId,
+  getReviewCountByBusinessId,
 } from "@/data/mockData";
 
 // Business Card Component
 export function BusinessCard({ business }: { business: Business }) {
   const category = getCategoryById(business.categoryId);
+  const averageRating = getAverageRatingByBusinessId(business.id);
+  const reviewCount = getReviewCountByBusinessId(business.id);
 
   return (
     <Link href={`/business/${business.slug}`}>
@@ -78,6 +82,24 @@ export function BusinessCard({ business }: { business: Business }) {
                 </span>
               </>
             )}
+          </div>
+
+          <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-emerald-600">★</span>
+              <span>
+                {averageRating > 0 ? averageRating.toFixed(1) : "New"}{" "}
+                {reviewCount > 0 && (
+                  <span className="text-gray-400">
+                    ({reviewCount} reviews)
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span>❤️</span>
+              <span>{business.likes}</span>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">

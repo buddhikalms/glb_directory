@@ -3,11 +3,24 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
-import { businesses } from "@/data/mockData";
+
+type BusinessStatus = "approved" | "pending" | "rejected";
+
+interface Business {
+  id: string;
+  name: string;
+  ownerId: string;
+  status: BusinessStatus;
+  location?: {
+    city: string;
+  };
+}
 
 export default function BusinessesPage() {
   const router = useRouter();
-  const [allBusinesses, setAllBusinesses] = useState(businesses);
+
+  const [allBusinesses, setAllBusinesses] = useState<Business[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<
     "all" | "approved" | "pending" | "rejected"
   >("all");
@@ -24,35 +37,93 @@ export default function BusinessesPage() {
   useEffect(() => {
     if (!isAuthenticated || user.role !== "admin") {
       router.push("/login");
+      return;
     }
-  }, []);
+
+    const fetchBusinesses = async () => {
+      try {
+        const res = await fetch("http://localhost:3001/api/businesses");
+        if (!res.ok) throw new Error("Failed to fetch businesses");
+        const rawData = await res.json();
+        console.log("Raw backend data:", rawData);
+
+        // Handle different response structures
+        const dataToMap = Array.isArray(rawData)
+          ? rawData
+          : rawData?.businesses || rawData?.data || [];
+
+        // 🔥 NORMALIZE BACKEND DATA HERE
+        const normalized: Business[] = dataToMap.map((b: any) => ({
+          id: b._id ?? b.id,
+          name: b.name ?? b.businessName ?? "Unnamed Business",
+          ownerId:
+            b.owner?._id ?? b.owner?.id ?? b.owner ?? b.ownerId ?? "Unknown",
+          status: (b.status ?? b.approvalStatus ?? "pending").toLowerCase(),
+          location: {
+            city: b.location?.city ?? b.city ?? "N/A",
+          },
+        }));
+
+        setAllBusinesses(normalized);
+      } catch (error) {
+        console.error("Error fetching businesses:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBusinesses();
+  }, [isAuthenticated, user.role, router]);
 
   const filteredBusinesses =
     filter === "all"
       ? allBusinesses
       : allBusinesses.filter((b) => b.status === filter);
 
-  const handleApprove = (id: string) => {
-    setAllBusinesses((prev) =>
-      prev.map((b) =>
-        b.id === id ? { ...b, status: "approved" as const } : b,
-      ),
+  const handleApprove = async (id: string) => {
+    try {
+      setAllBusinesses((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, status: "approved" } : b)),
+      );
+
+      // TODO: hook real API
+      // await fetch(`http://localhost:3001/api/businesses/${id}/approve`, { method: "POST" });
+    } catch (error) {
+      console.error("Error approving business:", error);
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    try {
+      setAllBusinesses((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, status: "rejected" } : b)),
+      );
+    } catch (error) {
+      console.error("Error rejecting business:", error);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this business?")) return;
+
+    try {
+      setAllBusinesses((prev) => prev.filter((b) => b.id !== id));
+
+      await fetch(`http://localhost:3001/api/businesses/${id}`, {
+        method: "DELETE",
+      });
+    } catch (error) {
+      console.error("Error deleting business:", error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-gray-600 text-lg">Loading businesses…</p>
+      </div>
     );
-  };
-
-  const handleReject = (id: string) => {
-    setAllBusinesses((prev) =>
-      prev.map((b) =>
-        b.id === id ? { ...b, status: "rejected" as const } : b,
-      ),
-    );
-  };
-
-  const handleDelete = (id: string) => {
-    setAllBusinesses((prev) => prev.filter((b) => b.id !== id));
-  };
-
-  if (!isAuthenticated || user.role !== "admin") return null;
+  }
 
   return (
     <div className="flex min-h-screen bg-stone-50">
@@ -129,7 +200,7 @@ export default function BusinessesPage() {
                               {business.name}
                             </p>
                             <p className="text-xs text-gray-600">
-                              {business.location.city}
+                              {business.location?.city}
                             </p>
                           </button>
                         </td>
@@ -156,14 +227,14 @@ export default function BusinessesPage() {
                               onClick={() =>
                                 router.push(`/admin/businesses/${business.id}`)
                               }
-                              className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-200 transition-colors"
+                              className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-200"
                             >
                               View Details
                             </button>
                             {business.status !== "approved" && (
                               <button
                                 onClick={() => handleApprove(business.id)}
-                                className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-semibold hover:bg-emerald-200 transition-colors"
+                                className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-semibold hover:bg-emerald-200"
                               >
                                 Approve
                               </button>
@@ -171,14 +242,14 @@ export default function BusinessesPage() {
                             {business.status !== "rejected" && (
                               <button
                                 onClick={() => handleReject(business.id)}
-                                className="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-200 transition-colors"
+                                className="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-200"
                               >
                                 Reject
                               </button>
                             )}
                             <button
                               onClick={() => handleDelete(business.id)}
-                              className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
+                              className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200"
                             >
                               Delete
                             </button>

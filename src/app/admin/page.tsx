@@ -152,6 +152,50 @@ export default function AdminPage() {
               </a>
 
               <a
+                href="/admin/users"
+                className="p-6 border-2 border-gray-200 rounded-xl hover:border-emerald-600 hover:bg-emerald-50 transition-all"
+              >
+                <div className="text-3xl mb-2">ðŸ‘¥</div>
+                <h3 className="font-semibold text-gray-900 mb-1">Users</h3>
+                <p className="text-sm text-gray-600">
+                  View and manage user accounts
+                </p>
+              </a>
+
+              <a
+                href="/admin/posts"
+                className="p-6 border-2 border-gray-200 rounded-xl hover:border-emerald-600 hover:bg-emerald-50 transition-all"
+              >
+                <div className="text-3xl mb-2">ðŸ“</div>
+                <h3 className="font-semibold text-gray-900 mb-1">Posts</h3>
+                <p className="text-sm text-gray-600">
+                  Manage news and blog posts
+                </p>
+              </a>
+
+              <a
+                href="/admin/authors"
+                className="p-6 border-2 border-gray-200 rounded-xl hover:border-emerald-600 hover:bg-emerald-50 transition-all"
+              >
+                <div className="text-3xl mb-2">ðŸ–‹ï¸</div>
+                <h3 className="font-semibold text-gray-900 mb-1">Authors</h3>
+                <p className="text-sm text-gray-600">
+                  Manage author profiles
+                </p>
+              </a>
+
+              <a
+                href="/admin/reviews"
+                className="p-6 border-2 border-gray-200 rounded-xl hover:border-emerald-600 hover:bg-emerald-50 transition-all"
+              >
+                <div className="text-3xl mb-2">â­</div>
+                <h3 className="font-semibold text-gray-900 mb-1">Reviews</h3>
+                <p className="text-sm text-gray-600">
+                  Moderate business reviews
+                </p>
+              </a>
+
+              <a
                 href="/directory"
                 className="p-6 border-2 border-gray-200 rounded-xl hover:border-emerald-600 hover:bg-emerald-50 transition-all"
               >
