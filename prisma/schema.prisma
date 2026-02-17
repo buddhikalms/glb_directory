@@ -1,0 +1,203 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum UserRole {
+  admin
+  business_owner
+  guest
+}
+
+enum BillingPeriod {
+  monthly
+  yearly
+}
+
+enum BusinessStatus {
+  pending
+  approved
+  rejected
+}
+
+enum PostStatus {
+  draft
+  published
+}
+
+model User {
+  id         String   @id
+  email      String   @unique
+  name       String
+  role       UserRole
+  slug       String?  @unique
+  avatar     String?
+  bio        String?
+  location   String?
+  title      String?
+  businessId String?
+
+  business        Business?  @relation("UserBusiness", fields: [businessId], references: [id])
+  ownedBusinesses Business[] @relation("BusinessOwner")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id          String @id
+  name        String
+  slug        String @unique
+  icon        String
+  description String
+  color       String
+
+  businesses Business[]
+}
+
+model Badge {
+  id    String @id
+  name  String
+  slug  String @unique
+  icon  String
+  color String
+
+  businesses BusinessBadge[]
+}
+
+model PricingPackage {
+  id            String        @id
+  name          String
+  price         Float
+  billingPeriod BillingPeriod
+  description   String
+  features      Json
+  featured      Boolean
+  active        Boolean
+}
+
+model Business {
+  id             String         @id
+  name           String
+  slug           String         @unique
+  tagline        String
+  description    String
+  categoryId     String
+  logo           String
+  coverImage     String
+  likes          Int
+  location       Json
+  contact        Json
+  social         Json
+  sustainability Json
+  status         BusinessStatus
+  featured       Boolean
+  views          Int
+  createdAt      DateTime
+  ownerId        String
+
+  category Category @relation(fields: [categoryId], references: [id])
+  owner    User     @relation("BusinessOwner", fields: [ownerId], references: [id])
+
+  products  Product[]
+  menuItems MenuItem[]
+  services  Service[]
+  reviews   Review[]
+  badges    BusinessBadge[]
+  users     User[]
+}
+
+model BusinessBadge {
+  businessId String
+  badgeId    String
+
+  business Business @relation(fields: [businessId], references: [id])
+  badge    Badge    @relation(fields: [badgeId], references: [id])
+
+  @@id([businessId, badgeId])
+}
+
+model Product {
+  id          String  @id
+  businessId  String
+  name        String
+  description String
+  price       Float
+  image       String
+  inStock     Boolean
+
+  business Business @relation(fields: [businessId], references: [id])
+}
+
+model MenuItem {
+  id          String @id
+  businessId  String
+  category    String
+  name        String
+  description String
+  price       Float
+  dietary     Json
+
+  business Business @relation(fields: [businessId], references: [id])
+}
+
+model Service {
+  id          String @id
+  businessId  String
+  name        String
+  description String
+  pricing     String
+
+  business Business @relation(fields: [businessId], references: [id])
+}
+
+model Review {
+  id         String   @id
+  businessId String
+  authorName String
+  rating     Int
+  comment    String
+  createdAt  DateTime
+  flagged    Boolean  @default(false)
+
+  business Business @relation(fields: [businessId], references: [id])
+}
+
+model AuthorProfile {
+  id       String  @id
+  name     String
+  slug     String  @unique
+  title    String
+  bio      String
+  avatar   String
+  location String?
+  links    Json
+
+  posts NewsPost[]
+}
+
+model NewsPost {
+  id             String     @id
+  title          String
+  slug           String     @unique
+  category       String
+  authorSlug     String
+  excerpt        String
+  content        String
+  coverImage     String
+  author         String
+  publishedAt    DateTime
+  readTime       String
+  tags           Json
+  featured       Boolean    @default(false)
+  seoTitle       String?
+  seoDescription String?
+  seoKeywords    String?
+  status         PostStatus
+  authorId       String
+
+  authorProfile AuthorProfile @relation(fields: [authorId], references: [id])
+}
