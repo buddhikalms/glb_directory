@@ -14,11 +14,42 @@ import {
   getReviewCountByBusinessId,
 } from "@/data/mockData";
 
+interface BusinessCardBadge {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+}
+
+interface BusinessCardCategory {
+  id?: string;
+  name: string;
+  icon: string;
+}
+
 // Business Card Component
-export function BusinessCard({ business }: { business: Business }) {
-  const category = getCategoryById(business.categoryId);
-  const averageRating = getAverageRatingByBusinessId(business.id);
-  const reviewCount = getReviewCountByBusinessId(business.id);
+export function BusinessCard({
+  business,
+  category: categoryOverride,
+  badges: badgesOverride,
+  averageRating: averageRatingOverride,
+  reviewCount: reviewCountOverride,
+}: {
+  business: Business;
+  category?: BusinessCardCategory;
+  badges?: BusinessCardBadge[];
+  averageRating?: number;
+  reviewCount?: number;
+}) {
+  const category = categoryOverride || getCategoryById(business.categoryId);
+  const averageRating =
+    averageRatingOverride ?? getAverageRatingByBusinessId(business.id);
+  const reviewCount = reviewCountOverride ?? getReviewCountByBusinessId(business.id);
+  const badges = badgesOverride
+    ? badgesOverride
+    : business.badges
+        .map((badgeId) => getBadgeById(badgeId))
+        .filter((badge): badge is Badge => Boolean(badge));
 
   return (
     <Link href={`/business/${business.slug}`}>
@@ -103,11 +134,9 @@ export function BusinessCard({ business }: { business: Business }) {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {business.badges.slice(0, 3).map((badgeId) => {
-              const badge = getBadgeById(badgeId);
-              if (!badge) return null;
-              return <BadgeTag key={badge.id} badge={badge} />;
-            })}
+            {badges.slice(0, 3).map((badge) => (
+              <BadgeTag key={badge.id} badge={badge} />
+            ))}
           </div>
         </div>
       </div>
@@ -116,7 +145,11 @@ export function BusinessCard({ business }: { business: Business }) {
 }
 
 // Badge Tag Component
-export function BadgeTag({ badge }: { badge: Badge }) {
+export function BadgeTag({
+  badge,
+}: {
+  badge: Pick<Badge, "id" | "name" | "icon" | "color">;
+}) {
   const colorClasses: Record<string, string> = {
     emerald: "bg-emerald-100 text-emerald-800 border-emerald-200",
     green: "bg-green-100 text-green-800 border-green-200",

@@ -2,20 +2,34 @@ import Link from "next/link";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
 import { BusinessCard } from "@/components/ui/Components";
-import { businesses, categories, getCategoryBySlug } from "@/data/mockData";
+import { prisma } from "@/lib/prisma";
 
-export const dynamicParams = false;
-
-export function generateStaticParams() {
-  return categories.map((category) => ({ slug: category.slug }));
+function toRecord(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
 }
 
-export default function CategoryPage({
+function asString(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
+export default async function CategoryPage({
   params,
 }: {
   params: { slug: string };
 }) {
-  const category = getCategoryBySlug(params.slug);
+  const category = await prisma.category.findUnique({
+    where: { slug: params.slug },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      icon: true,
+      description: true,
+    },
+  });
 
   if (!category) {
     return (
@@ -27,7 +41,7 @@ export default function CategoryPage({
               Category Not Found
             </h1>
             <p className="text-lg text-gray-600 mb-8">
-              The category you're looking for doesn't exist.
+              The category you&apos;re looking for doesn&apos;t exist.
             </p>
             <Link href="/directory" className="btn-primary">
               Back to Directory
@@ -39,15 +53,43 @@ export default function CategoryPage({
     );
   }
 
-  const categoryBusinesses = businesses.filter(
-    (b) => b.categoryId === category.id && b.status === "approved",
-  );
+  const categoryBusinessesRaw = await prisma.business.findMany({
+    where: {
+      categoryId: category.id,
+      status: "approved",
+    },
+    include: {
+      badges: { include: { badge: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const categoryBusinesses = categoryBusinessesRaw.map((item) => {
+    const location = toRecord(item.location);
+    return {
+      id: item.id,
+      slug: item.slug,
+      name: item.name,
+      tagline: item.tagline,
+      coverImage: item.coverImage,
+      logo: item.logo,
+      featured: item.featured,
+      likes: item.likes,
+      categoryId: item.categoryId,
+      badges: item.badges.map((b) => b.badgeId),
+      location: {
+        city: asString(location.city),
+        address: asString(location.address),
+        postcode: asString(location.postcode),
+      },
+      badgeItems: item.badges.map((b) => b.badge),
+    };
+  });
 
   return (
     <>
       <Navbar />
       <main className="min-h-screen bg-stone-50">
-        {/* Header */}
         <section className="bg-white border-b border-gray-200 py-12 px-4">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center gap-6 mb-6">
@@ -68,13 +110,19 @@ export default function CategoryPage({
           </div>
         </section>
 
-        {/* Businesses Grid */}
         <section className="py-12 px-4">
           <div className="max-w-7xl mx-auto">
             {categoryBusinesses.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {categoryBusinesses.map((business) => (
-                  <BusinessCard key={business.id} business={business} />
+                  <BusinessCard
+                    key={business.id}
+                    business={business as any}
+                    category={category}
+                    badges={business.badgeItems}
+                    averageRating={0}
+                    reviewCount={0}
+                  />
                 ))}
               </div>
             ) : (
@@ -94,3 +142,4 @@ export default function CategoryPage({
     </>
   );
 }
+

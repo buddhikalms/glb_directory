@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  engineType = "binary"
 }
 
 datasource db {
@@ -9,6 +10,9 @@ datasource db {
 enum UserRole {
   admin
   business_owner
+  author
+  editor
+  subscriber
   guest
 }
 
@@ -45,6 +49,7 @@ model User {
   // Relations
   business        Business?  @relation("BusinessUsers", fields: [businessId], references: [id])
   ownedBusinesses Business[] @relation("BusinessOwner")
+  authorProfile   AuthorProfile?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -182,7 +187,9 @@ model AuthorProfile {
   avatar   String
   location String?
   links    Json
+  userId   String  @unique
 
+  user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   posts NewsPost[]
 }
 
@@ -208,3 +215,4 @@ model NewsPost {
 
   authorProfile AuthorProfile @relation(fields: [authorId], references: [id])
 }
+

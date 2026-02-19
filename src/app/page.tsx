@@ -1,17 +1,71 @@
-import Link from 'next/link';
-import Navbar from '@/components/public/Navbar';
-import Footer from '@/components/public/Footer';
-import { BusinessCard, CategoryCard, SearchBar } from '@/components/ui/Components';
-import { businesses, categories } from '@/data/mockData';
+import Link from "next/link";
+import Navbar from "@/components/public/Navbar";
+import Footer from "@/components/public/Footer";
+import { BusinessCard, CategoryCard, SearchBar } from "@/components/ui/Components";
+import { prisma } from "@/lib/prisma";
 
-export default function Home() {
-  const featuredBusinesses = businesses.filter(b => b.featured && b.status === 'approved');
+function toRecord(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
+
+function asString(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
+export default async function Home() {
+  const [featuredBusinessesRaw, categories] = await Promise.all([
+    prisma.business.findMany({
+      where: { featured: true, status: "approved" },
+      include: {
+        category: { select: { id: true, name: true, icon: true } },
+        badges: { include: { badge: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+    }),
+    prisma.category.findMany({
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        icon: true,
+        description: true,
+        color: true,
+      },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  const featuredBusinesses = featuredBusinessesRaw.map((item) => {
+    const location = toRecord(item.location);
+    return {
+      id: item.id,
+      slug: item.slug,
+      name: item.name,
+      tagline: item.tagline,
+      coverImage: item.coverImage,
+      logo: item.logo,
+      featured: item.featured,
+      likes: item.likes,
+      categoryId: item.categoryId,
+      location: {
+        city: asString(location.city),
+        address: asString(location.address),
+        postcode: asString(location.postcode),
+      },
+      badges: item.badges.map((b) => b.badgeId),
+      category: item.category,
+      badgeItems: item.badges.map((b) => b.badge),
+    };
+  });
 
   return (
     <>
       <Navbar />
       <main>
-        {/* Hero Section */}
         <section className="relative min-h-[600px] flex items-center justify-center leaf-pattern">
           <div className="absolute inset-0 organic-gradient opacity-90"></div>
           <div className="relative z-10 max-w-4xl mx-auto text-center px-4 py-20">
@@ -38,7 +92,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Featured Businesses */}
         <section className="py-20 px-4 bg-white">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-12">
@@ -49,13 +102,20 @@ export default function Home() {
                 Discover businesses leading the way in sustainability
               </p>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {featuredBusinesses.map((business) => (
-                <BusinessCard key={business.id} business={business} />
+                <BusinessCard
+                  key={business.id}
+                  business={business as any}
+                  category={business.category}
+                  badges={business.badgeItems}
+                  averageRating={0}
+                  reviewCount={0}
+                />
               ))}
             </div>
-            
+
             <div className="text-center mt-12">
               <Link href="/directory" className="btn-primary">
                 View All Businesses
@@ -64,7 +124,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Categories */}
         <section className="py-20 px-4 bg-stone-50">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-12">
@@ -75,16 +134,15 @@ export default function Home() {
                 Find sustainable businesses in your area of interest
               </p>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {categories.map((category) => (
-                <CategoryCard key={category.id} category={category} />
+                <CategoryCard key={category.id} category={category as any} />
               ))}
             </div>
           </div>
         </section>
 
-        {/* Why Choose Us */}
         <section className="py-20 px-4 bg-white">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-16">
@@ -95,7 +153,7 @@ export default function Home() {
                 Making sustainable choices easier for everyone
               </p>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
               <div className="text-center">
                 <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">
@@ -106,7 +164,7 @@ export default function Home() {
                   Every business is verified for their sustainability practices and certifications.
                 </p>
               </div>
-              
+
               <div className="text-center">
                 <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">
                   🤝
@@ -116,7 +174,7 @@ export default function Home() {
                   Connect with local businesses committed to ethical and sustainable practices.
                 </p>
               </div>
-              
+
               <div className="text-center">
                 <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">
                   🌍
@@ -130,7 +188,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* CTA Section */}
         <section className="py-20 px-4 organic-gradient">
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="font-display text-4xl md:text-5xl font-bold text-gray-900 mb-6">
@@ -152,3 +209,4 @@ export default function Home() {
     </>
   );
 }
+

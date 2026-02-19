@@ -10,6 +10,7 @@ const updateAuthorSchema = z.object({
   avatar: z.string().optional(),
   location: z.string().optional().nullable(),
   links: z.any().optional(),
+  userId: z.string().optional(),
 });
 
 export async function GET(
@@ -18,6 +19,7 @@ export async function GET(
 ) {
   const data = await prisma.authorProfile.findUnique({
     where: { id: params.id },
+    include: { user: true },
   });
   return NextResponse.json(data);
 }

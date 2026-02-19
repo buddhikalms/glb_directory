@@ -1,4 +1,5 @@
-import { PrismaClient, UserRole, BusinessStatus, BillingPeriod, PostStatus } from "@prisma/client";
+import { UserRole, BusinessStatus, BillingPeriod, PostStatus } from "@prisma/client";
+import { prisma } from "../src/lib/prisma";
 import {
   users,
   categories,
@@ -13,7 +14,40 @@ import {
   newsPosts,
 } from "../src/data/mockData";
 
-const prisma = new PrismaClient();
+const sampleCategories = [
+  {
+    id: "cat-sample-home-garden",
+    name: "Home & Garden",
+    slug: "home-garden",
+    icon: "🏡",
+    description: "Eco-friendly home products, decor, and sustainable gardening.",
+    color: "green",
+  },
+  {
+    id: "cat-sample-fashion",
+    name: "Sustainable Fashion",
+    slug: "sustainable-fashion",
+    icon: "👕",
+    description: "Clothing and accessories made with ethical, low-impact practices.",
+    color: "emerald",
+  },
+  {
+    id: "cat-sample-beauty",
+    name: "Beauty & Wellness",
+    slug: "beauty-wellness",
+    icon: "🧴",
+    description: "Natural and clean beauty products with sustainable sourcing.",
+    color: "teal",
+  },
+  {
+    id: "cat-sample-travel",
+    name: "Travel & Experiences",
+    slug: "travel-experiences",
+    icon: "🧭",
+    description: "Responsible travel services and eco-conscious experiences.",
+    color: "cyan",
+  },
+];
 
 async function main() {
   await prisma.businessBadge.deleteMany();
@@ -29,15 +63,37 @@ async function main() {
   await prisma.pricingPackage.deleteMany();
   await prisma.user.deleteMany();
 
-  await prisma.category.createMany({
-    data: categories.map((item) => ({
+  const categorySeedMap = new Map<
+    string,
+    {
+      id: string;
+      name: string;
+      slug: string;
+      icon: string;
+      description: string;
+      color: string;
+    }
+  >();
+
+  for (const item of categories) {
+    categorySeedMap.set(item.slug, {
       id: item.id,
       name: item.name,
       slug: item.slug,
       icon: item.icon,
       description: item.description,
       color: item.color,
-    })),
+    });
+  }
+
+  for (const item of sampleCategories) {
+    if (!categorySeedMap.has(item.slug)) {
+      categorySeedMap.set(item.slug, item);
+    }
+  }
+
+  await prisma.category.createMany({
+    data: Array.from(categorySeedMap.values()),
   });
 
   await prisma.badge.createMany({
@@ -77,6 +133,12 @@ async function main() {
       businessId: null,
     })),
   });
+
+  const userBySlug = new Map(
+    users
+      .filter((item) => Boolean(item.slug))
+      .map((item) => [item.slug as string, item.id]),
+  );
 
   await prisma.business.createMany({
     data: businesses.map((item) => ({
@@ -167,16 +229,41 @@ async function main() {
   });
 
   await prisma.authorProfile.createMany({
-    data: authors.map((item) => ({
-      id: item.id,
-      name: item.name,
-      slug: item.slug,
-      title: item.title,
-      bio: item.bio,
-      avatar: item.avatar,
-      location: item.location || null,
-      links: item.links || {},
-    })),
+    data: await Promise.all(
+      authors.map(async (item) => {
+        let userId = userBySlug.get(item.slug);
+
+        if (!userId) {
+          userId = `author-user-${item.id}`;
+          await prisma.user.create({
+            data: {
+              id: userId,
+              email: `${item.slug}@authors.local`,
+              name: item.name,
+              role: UserRole.admin,
+              slug: item.slug,
+              avatar: item.avatar || null,
+              bio: item.bio || null,
+              location: item.location || null,
+              title: item.title || null,
+              businessId: null,
+            },
+          });
+        }
+
+        return {
+          id: item.id,
+          name: item.name,
+          slug: item.slug,
+          title: item.title,
+          bio: item.bio,
+          avatar: item.avatar,
+          location: item.location || null,
+          links: item.links || {},
+          userId,
+        };
+      }),
+    ),
   });
 
   const authorBySlug = new Map(authors.map((item) => [item.slug, item.id]));

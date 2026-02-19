@@ -1,6 +1,12 @@
 // Mock data for the green business directory
 
-export type UserRole = "admin" | "business_owner" | "guest";
+export type UserRole =
+  | "admin"
+  | "business_owner"
+  | "author"
+  | "editor"
+  | "subscriber"
+  | "guest";
 
 export interface User {
   id: string;

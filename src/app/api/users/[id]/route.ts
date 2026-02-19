@@ -5,7 +5,16 @@ import { prisma } from "@/lib/prisma";
 const updateUserSchema = z.object({
   email: z.string().email().optional(),
   name: z.string().optional(),
-  role: z.enum(["admin", "business_owner", "guest"]).optional(),
+  role: z
+    .enum([
+      "admin",
+      "business_owner",
+      "author",
+      "editor",
+      "subscriber",
+      "guest",
+    ])
+    .optional(),
   slug: z.string().optional().nullable(),
   avatar: z.string().optional().nullable(),
   bio: z.string().optional().nullable(),

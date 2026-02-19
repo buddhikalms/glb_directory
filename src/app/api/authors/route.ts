@@ -11,10 +11,13 @@ const createAuthorSchema = z.object({
   avatar: z.string(),
   location: z.string().optional().nullable(),
   links: z.any(),
+  userId: z.string(),
 });
 
 export async function GET() {
-  const data = await prisma.authorProfile.findMany();
+  const data = await prisma.authorProfile.findMany({
+    include: { user: true },
+  });
   return NextResponse.json(data);
 }
 
