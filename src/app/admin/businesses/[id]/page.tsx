@@ -84,11 +84,42 @@ export default function BusinessDetailPage() {
     >,
   ) => {
     const { name, value, type } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]:
-        type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
-    }));
+    const nextValue =
+      type === "checkbox" ? (e.target as HTMLInputElement).checked : value;
+
+    setFormData((prev) => {
+      if (!prev) return prev;
+
+      switch (name) {
+        case "name":
+          return { ...prev, name: String(nextValue) };
+        case "tagline":
+          return { ...prev, tagline: String(nextValue) };
+        case "description":
+          return { ...prev, description: String(nextValue) };
+        case "locationCity":
+          return { ...prev, locationCity: String(nextValue) };
+        case "locationAddress":
+          return { ...prev, locationAddress: String(nextValue) };
+        case "locationPostcode":
+          return { ...prev, locationPostcode: String(nextValue) };
+        case "contactEmail":
+          return { ...prev, contactEmail: String(nextValue) };
+        case "contactPhone":
+          return { ...prev, contactPhone: String(nextValue) };
+        case "contactWebsite":
+          return { ...prev, contactWebsite: String(nextValue) };
+        case "featured":
+          return { ...prev, featured: Boolean(nextValue) };
+        case "status":
+          return {
+            ...prev,
+            status: nextValue as "pending" | "approved" | "rejected",
+          };
+        default:
+          return prev;
+      }
+    });
   };
 
   const handleImageUpload = (type: "logo" | "cover", file: File) => {

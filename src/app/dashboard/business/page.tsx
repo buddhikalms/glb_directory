@@ -48,10 +48,17 @@ export default function BusinessEditPage() {
     const { name, value } = e.target;
     if (name.includes(".")) {
       const [parent, child] = name.split(".");
-      setFormData((prev) => ({
-        ...prev,
-        [parent]: { ...prev[parent as keyof typeof prev], [child]: value },
-      }));
+      if (parent === "location") {
+        setFormData((prev) => ({
+          ...prev,
+          location: { ...prev.location, [child]: value },
+        }));
+      } else if (parent === "contact") {
+        setFormData((prev) => ({
+          ...prev,
+          contact: { ...prev.contact, [child]: value },
+        }));
+      }
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
