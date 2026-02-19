@@ -1,4 +1,7 @@
 {
   "/directory/page": "app/directory/page.js",
-  "/business/[slug]/page": "app/business/[slug]/page.js"
+  "/admin/reviews/page": "app/admin/reviews/page.js",
+  "/dashboard/products/page": "app/dashboard/products/page.js",
+  "/business/[slug]/page": "app/business/[slug]/page.js",
+  "/dashboard/media/page": "app/dashboard/media/page.js"
 }

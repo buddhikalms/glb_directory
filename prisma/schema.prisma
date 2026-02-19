@@ -29,18 +29,21 @@ enum PostStatus {
 }
 
 model User {
-  id         String   @id
-  email      String   @unique
-  name       String
-  role       UserRole
-  slug       String?  @unique
-  avatar     String?
-  bio        String?
-  location   String?
-  title      String?
+  id       String   @id
+  email    String   @unique
+  name     String
+  role     UserRole
+  slug     String?  @unique
+  avatar   String?
+  bio      String?
+  location String?
+  title    String?
+
+  // Optional: user works at one business
   businessId String?
 
-  business        Business?  @relation("UserBusiness", fields: [businessId], references: [id])
+  // Relations
+  business        Business?  @relation("BusinessUsers", fields: [businessId], references: [id])
   ownedBusinesses Business[] @relation("BusinessOwner")
 
   createdAt DateTime @default(now())
@@ -88,26 +91,30 @@ model Business {
   categoryId     String
   logo           String
   coverImage     String
-  likes          Int
+  likes          Int            @default(0)
   location       Json
   contact        Json
   social         Json
   sustainability Json
-  status         BusinessStatus
-  featured       Boolean
-  views          Int
-  createdAt      DateTime
-  ownerId        String
+  status         BusinessStatus @default(pending)
+  featured       Boolean        @default(false)
+  views          Int            @default(0)
+  createdAt      DateTime       @default(now())
+
+  // Owner (One owner → many businesses)
+  ownerId String
+  owner   User   @relation("BusinessOwner", fields: [ownerId], references: [id])
+
+  // Staff / Members (One business → many users)
+  users User[] @relation("BusinessUsers")
 
   category Category @relation(fields: [categoryId], references: [id])
-  owner    User     @relation("BusinessOwner", fields: [ownerId], references: [id])
 
   products  Product[]
   menuItems MenuItem[]
   services  Service[]
   reviews   Review[]
   badges    BusinessBadge[]
-  users     User[]
 }
 
 model BusinessBadge {
@@ -160,7 +167,7 @@ model Review {
   authorName String
   rating     Int
   comment    String
-  createdAt  DateTime
+  createdAt  DateTime @default(now())
   flagged    Boolean  @default(false)
 
   business Business @relation(fields: [businessId], references: [id])
@@ -189,14 +196,14 @@ model NewsPost {
   content        String
   coverImage     String
   author         String
-  publishedAt    DateTime
+  publishedAt    DateTime?
   readTime       String
   tags           Json
   featured       Boolean    @default(false)
   seoTitle       String?
   seoDescription String?
   seoKeywords    String?
-  status         PostStatus
+  status         PostStatus @default(draft)
   authorId       String
 
   authorProfile AuthorProfile @relation(fields: [authorId], references: [id])
