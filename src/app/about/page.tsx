@@ -1,12 +1,30 @@
-"use client";
-
+import type { Metadata } from "next";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
 import Link from "next/link";
+import JsonLd from "@/components/seo/JsonLd";
+import { absoluteUrl, createMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = createMetadata({
+  title: "About",
+  description:
+    "Learn about Green Living Directory and our mission to support sustainable local businesses.",
+  pathname: "/about",
+});
 
 export default function AboutPage() {
+  const aboutSchema = {
+    "@context": "https://schema.org",
+    "@type": "AboutPage",
+    name: "About Green Living Directory",
+    description:
+      "Green Living Directory helps communities discover verified sustainable businesses.",
+    url: absoluteUrl("/about"),
+  };
+
   return (
     <>
+      <JsonLd id="about-page-schema" data={aboutSchema} />
       <Navbar />
       <main className="min-h-screen bg-stone-50">
         <section className="bg-white border-b border-gray-200 py-12 px-4">

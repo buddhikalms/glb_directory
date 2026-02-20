@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 
@@ -8,37 +8,41 @@ const updatePricingSchema = z.object({
   billingPeriod: z.enum(["monthly", "yearly"]).optional(),
   description: z.string().optional(),
   features: z.array(z.string()).optional(),
+  galleryLimit: z.number().int().min(0).optional(),
   featured: z.boolean().optional(),
   active: z.boolean().optional(),
 });
 
 export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } },
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const data = await prisma.pricingPackage.findUnique({
-    where: { id: params.id },
+    where: { id },
   });
   return NextResponse.json(data);
 }
 
 export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } },
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const body = await req.json();
   const parsed = updatePricingSchema.parse(body);
   const updated = await prisma.pricingPackage.update({
-    where: { id: params.id },
+    where: { id },
     data: { ...parsed, features: parsed.features },
   });
   return NextResponse.json(updated);
 }
 
 export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string } },
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  await prisma.pricingPackage.delete({ where: { id: params.id } });
+  const { id } = await params;
+  await prisma.pricingPackage.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

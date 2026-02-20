@@ -1,7 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
+import JsonLd from "@/components/seo/JsonLd";
 import { authors, getAuthorBySlug, newsPosts } from "@/data/mockData";
+import { breadcrumbSchema, createMetadata } from "@/lib/seo";
 
 export const dynamicParams = false;
 
@@ -9,12 +13,37 @@ export function generateStaticParams() {
   return authors.map((author) => ({ slug: author.slug }));
 }
 
-export default function AuthorProfilePage({
+export async function generateMetadata({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const author = getAuthorBySlug(slug);
+
+  if (!author) {
+    return createMetadata({
+      title: "Author Not Found",
+      description: "This author profile is not available.",
+      pathname: `/authors/${slug}`,
+      noIndex: true,
+    });
+  }
+
+  return createMetadata({
+    title: author.name,
+    description: author.bio,
+    pathname: `/authors/${author.slug}`,
+  });
+}
+
+export default async function AuthorProfilePage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
 }) {
-  const author = getAuthorBySlug(params.slug);
+  const { slug } = await params;
+  const author = getAuthorBySlug(slug);
 
   if (!author) {
     return (
@@ -41,17 +70,38 @@ export default function AuthorProfilePage({
   const authoredPosts = newsPosts.filter(
     (post) => post.authorSlug === author.slug,
   );
+  const authorSchema: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: author.name,
+    description: author.bio,
+    jobTitle: author.title,
+    homeLocation: author.location
+      ? { "@type": "Place", name: author.location }
+      : undefined,
+    url: author.links?.website || undefined,
+  };
+
+  const authorBreadcrumbSchema = breadcrumbSchema([
+    { name: "Home", pathname: "/" },
+    { name: "News", pathname: "/news" },
+    { name: author.name, pathname: `/authors/${author.slug}` },
+  ]);
 
   return (
     <>
+      <JsonLd id="author-schema" data={authorSchema} />
+      <JsonLd id="author-breadcrumb-schema" data={authorBreadcrumbSchema} />
       <Navbar />
       <main className="min-h-screen bg-stone-50">
         <section className="bg-white border-b border-gray-200 py-12 px-4">
           <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 items-start">
-            <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-emerald-100">
-              <img
+            <div className="relative w-28 h-28 rounded-full overflow-hidden border-4 border-emerald-100">
+              <Image
                 src={author.avatar}
                 alt={author.name}
+                fill
+                sizes="112px"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -99,10 +149,12 @@ export default function AuthorProfilePage({
                     href={`/news/${post.slug}`}
                     className="bg-white rounded-2xl overflow-hidden shadow-sm card-hover"
                   >
-                    <div className="h-40 overflow-hidden">
-                      <img
+                    <div className="relative h-40 overflow-hidden">
+                      <Image
                         src={post.coverImage}
                         alt={post.title}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 33vw"
                         className="w-full h-full object-cover"
                       />
                     </div>

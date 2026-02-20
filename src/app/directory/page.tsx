@@ -1,5 +1,15 @@
+import type { Metadata } from "next";
+import JsonLd from "@/components/seo/JsonLd";
 import { prisma } from "@/lib/prisma";
+import { absoluteUrl, collectionPageSchema, createMetadata } from "@/lib/seo";
 import DirectoryClient from "./DirectoryClient";
+
+export const metadata: Metadata = createMetadata({
+  title: "Business Directory",
+  description:
+    "Browse verified sustainable businesses by category, location, and sustainability badges.",
+  pathname: "/directory",
+});
 
 function toRecord(value: unknown): Record<string, unknown> {
   if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -12,12 +22,40 @@ function asString(value: unknown) {
   return typeof value === "string" ? value : "";
 }
 
+function toStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function calculatePackageExpiryDate(
+  createdAt: Date,
+  billingPeriod?: "monthly" | "yearly",
+) {
+  if (!billingPeriod) return "";
+  const expiresAt = new Date(createdAt);
+  if (billingPeriod === "monthly") {
+    expiresAt.setMonth(expiresAt.getMonth() + 1);
+  } else {
+    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  }).format(expiresAt);
+}
+
 export default async function DirectoryPage() {
   const [businessesRaw, categories, badges] = await Promise.all([
     prisma.business.findMany({
       where: { status: "approved" },
       include: {
         category: { select: { id: true, name: true, icon: true } },
+        pricingPackage: {
+          select: { name: true, billingPeriod: true, galleryLimit: true },
+        },
         badges: { include: { badge: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -34,12 +72,20 @@ export default async function DirectoryPage() {
 
   const businesses = businessesRaw.map((item) => {
     const location = toRecord(item.location);
+    const gallery = toStringArray(item.gallery);
+    const galleryLimit = item.pricingPackage?.galleryLimit;
+    const visibleGallery =
+      typeof galleryLimit === "number"
+        ? gallery.slice(0, Math.max(galleryLimit, 0))
+        : gallery;
+
     return {
       id: item.id,
       slug: item.slug,
       name: item.name,
       tagline: item.tagline,
       coverImage: item.coverImage,
+      gallery: visibleGallery,
       logo: item.logo,
       featured: item.featured,
       likes: item.likes,
@@ -48,15 +94,28 @@ export default async function DirectoryPage() {
       badgeIds: item.badges.map((b) => b.badgeId),
       category: item.category,
       badges: item.badges.map((b) => b.badge),
+      pricingPackageName: item.pricingPackage?.name || "",
+      packageExpiresAt: calculatePackageExpiryDate(
+        item.createdAt,
+        item.pricingPackage?.billingPeriod,
+      ),
     };
   });
 
+  const directorySchema = collectionPageSchema({
+    name: "Sustainable Business Directory",
+    description:
+      "A searchable directory of verified sustainable businesses and services.",
+    pathname: "/directory",
+    itemUrls: businesses.map((business) =>
+      absoluteUrl(`/business/${business.slug}`),
+    ),
+  });
+
   return (
-    <DirectoryClient
-      businesses={businesses}
-      categories={categories}
-      badges={badges}
-    />
+    <>
+      <JsonLd id="directory-schema" data={directorySchema} />
+      <DirectoryClient businesses={businesses} categories={categories} badges={badges} />
+    </>
   );
 }
-

@@ -1,8 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
 import { CategoryCard } from "@/components/ui/Components";
+import JsonLd from "@/components/seo/JsonLd";
 import { prisma } from "@/lib/prisma";
+import { absoluteUrl, collectionPageSchema, createMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = createMetadata({
+  title: "Categories",
+  description:
+    "Explore sustainable business categories and find verified green businesses in each.",
+  pathname: "/categories",
+});
 
 export default async function CategoriesPage() {
   const [categories, approvedBusinesses] = await Promise.all([
@@ -31,8 +41,17 @@ export default async function CategoriesPage() {
     {},
   );
 
+  const categoriesSchema = collectionPageSchema({
+    name: "Business Categories",
+    description:
+      "Sustainability-focused business categories in Green Living Directory.",
+    pathname: "/categories",
+    itemUrls: categories.map((category) => absoluteUrl(`/category/${category.slug}`)),
+  });
+
   return (
     <>
+      <JsonLd id="categories-schema" data={categoriesSchema} />
       <Navbar />
       <main className="min-h-screen bg-stone-50">
         <section className="bg-white border-b border-gray-200 py-12 px-4">
@@ -81,4 +100,3 @@ export default async function CategoriesPage() {
     </>
   );
 }
-

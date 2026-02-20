@@ -1,12 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
+import JsonLd from "@/components/seo/JsonLd";
 import {
   businesses,
   getBusinessById,
   getUserBySlug,
   users,
 } from "@/data/mockData";
+import { breadcrumbSchema, createMetadata } from "@/lib/seo";
 
 export const dynamicParams = false;
 
@@ -16,12 +20,38 @@ export function generateStaticParams() {
     .map((user) => ({ slug: user.slug as string }));
 }
 
-export default function OwnerProfilePage({
+export async function generateMetadata({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const owner = getUserBySlug(slug);
+
+  if (!owner) {
+    return createMetadata({
+      title: "Owner Not Found",
+      description: "This business owner profile is not available.",
+      pathname: `/owners/${slug}`,
+      noIndex: true,
+    });
+  }
+
+  return createMetadata({
+    title: owner.name,
+    description:
+      owner.bio || `Profile of ${owner.name}, a business owner in the directory.`,
+    pathname: `/owners/${slug}`,
+  });
+}
+
+export default async function OwnerProfilePage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
 }) {
-  const owner = getUserBySlug(params.slug);
+  const { slug } = await params;
+  const owner = getUserBySlug(slug);
 
   if (!owner) {
     return (
@@ -48,17 +78,43 @@ export default function OwnerProfilePage({
   const ownerBusiness = owner.businessId
     ? getBusinessById(owner.businessId)
     : null;
+  const ownerSchema: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: owner.name,
+    description: owner.bio || undefined,
+    email: owner.email,
+    homeLocation: owner.location
+      ? { "@type": "Place", name: owner.location }
+      : undefined,
+    worksFor: ownerBusiness
+      ? { "@type": "Organization", name: ownerBusiness.name }
+      : undefined,
+  };
+
+  const ownerBreadcrumbSchema = breadcrumbSchema([
+    { name: "Home", pathname: "/" },
+    { name: "Directory", pathname: "/directory" },
+    { name: owner.name, pathname: `/owners/${slug}` },
+  ]);
 
   return (
     <>
+      <JsonLd id="owner-schema" data={ownerSchema} />
+      <JsonLd id="owner-breadcrumb-schema" data={ownerBreadcrumbSchema} />
       <Navbar />
       <main className="min-h-screen bg-stone-50">
         <section className="bg-white border-b border-gray-200 py-12 px-4">
           <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 items-start">
-            <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-emerald-100">
-              <img
-                src={owner.avatar || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400"}
+            <div className="relative w-28 h-28 rounded-full overflow-hidden border-4 border-emerald-100">
+              <Image
+                src={
+                  owner.avatar ||
+                  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400"
+                }
                 alt={owner.name}
+                fill
+                sizes="112px"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -94,10 +150,12 @@ export default function OwnerProfilePage({
                 href={`/business/${ownerBusiness.slug}`}
                 className="bg-white rounded-2xl overflow-hidden shadow-sm card-hover block"
               >
-                <div className="h-48 overflow-hidden">
-                  <img
+                <div className="relative h-48 overflow-hidden">
+                  <Image
                     src={ownerBusiness.coverImage}
                     alt={ownerBusiness.name}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -105,9 +163,7 @@ export default function OwnerProfilePage({
                   <h3 className="font-display text-2xl font-bold text-gray-900 mb-2">
                     {ownerBusiness.name}
                   </h3>
-                  <p className="text-gray-600 mb-4">
-                    {ownerBusiness.tagline}
-                  </p>
+                  <p className="text-gray-600 mb-4">{ownerBusiness.tagline}</p>
                   <p className="text-sm text-emerald-600 font-semibold">
                     View listing
                   </p>

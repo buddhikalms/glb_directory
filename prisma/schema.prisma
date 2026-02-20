@@ -83,8 +83,11 @@ model PricingPackage {
   billingPeriod BillingPeriod
   description   String
   features      Json
+  galleryLimit  Int           @default(0)
   featured      Boolean
   active        Boolean
+
+  businesses Business[]
 }
 
 model Business {
@@ -93,7 +96,10 @@ model Business {
   slug           String         @unique
   tagline        String
   description    String
+  seoKeywords    String?
+  gallery        Json?
   categoryId     String
+  pricingPackageId String?
   logo           String
   coverImage     String
   likes          Int            @default(0)
@@ -114,6 +120,7 @@ model Business {
   users User[] @relation("BusinessUsers")
 
   category Category @relation(fields: [categoryId], references: [id])
+  pricingPackage PricingPackage? @relation(fields: [pricingPackageId], references: [id])
 
   products  Product[]
   menuItems MenuItem[]
@@ -215,4 +222,7 @@ model NewsPost {
 
   authorProfile AuthorProfile @relation(fields: [authorId], references: [id])
 }
+
+
+
 

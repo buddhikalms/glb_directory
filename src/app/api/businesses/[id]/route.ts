@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 
@@ -7,6 +7,7 @@ const updateBusinessSchema = z.object({
   slug: z.string().optional(),
   tagline: z.string().optional(),
   description: z.string().optional(),
+  seoKeywords: z.string().optional(),
   categoryId: z.string().optional(),
   logo: z.string().optional(),
   coverImage: z.string().optional(),
@@ -24,11 +25,12 @@ const updateBusinessSchema = z.object({
 });
 
 export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } },
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const data = await prisma.business.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       badges: { include: { badge: true } },
       category: true,
@@ -43,15 +45,16 @@ export async function GET(
 }
 
 export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } },
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const body = await req.json();
   const parsed = updateBusinessSchema.parse(body);
   const { badgeIds, createdAt, ...data } = parsed;
 
   const updated = await prisma.business.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       ...data,
       ...(createdAt
@@ -61,11 +64,11 @@ export async function PUT(
   });
 
   if (badgeIds) {
-    await prisma.businessBadge.deleteMany({ where: { businessId: params.id } });
+    await prisma.businessBadge.deleteMany({ where: { businessId: id } });
     if (badgeIds.length) {
       await prisma.businessBadge.createMany({
         data: badgeIds.map((badgeId) => ({
-          businessId: params.id,
+          businessId: id,
           badgeId,
         })),
       });
@@ -76,9 +79,10 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string } },
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  await prisma.business.delete({ where: { id: params.id } });
+  const { id } = await params;
+  await prisma.business.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

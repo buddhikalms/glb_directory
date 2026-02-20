@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import { StatsCard } from "@/components/ui/Components";
@@ -92,9 +93,11 @@ export default function DashboardPage() {
               </div>
 
               <div className="flex items-center justify-center">
-                <img
+                <Image
                   src={business.logo}
                   alt={business.name}
+                  width={160}
+                  height={160}
                   className="w-40 h-40 rounded-xl object-cover shadow-md"
                 />
               </div>

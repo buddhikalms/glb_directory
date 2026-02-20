@@ -24,12 +24,15 @@ interface DirectoryBusiness {
   name: string;
   tagline: string;
   coverImage: string;
+  gallery: string[];
   logo: string;
   featured: boolean;
   likes: number;
   categoryId: string;
   city: string;
   badgeIds: string[];
+  pricingPackageName: string;
+  packageExpiresAt: string;
   category: DirectoryCategory;
   badges: DirectoryBadge[];
 }
@@ -200,11 +203,14 @@ export default function DirectoryClient({
                         name: business.name,
                         tagline: business.tagline,
                         coverImage: business.coverImage,
+                        gallery: business.gallery,
                         logo: business.logo,
                         featured: business.featured,
                         likes: business.likes,
                         categoryId: business.categoryId,
                         badges: business.badgeIds,
+                        pricingPackageName: business.pricingPackageName,
+                        packageExpiresAt: business.packageExpiresAt,
                         location: {
                           city: business.city,
                           address: "",
@@ -227,4 +233,3 @@ export default function DirectoryClient({
     </>
   );
 }
-

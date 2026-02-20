@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 
@@ -11,24 +11,26 @@ const updateReviewSchema = z.object({
 });
 
 export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } },
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const data = await prisma.review.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { business: true },
   });
   return NextResponse.json(data);
 }
 
 export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } },
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const body = await req.json();
   const parsed = updateReviewSchema.parse(body);
   const updated = await prisma.review.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       ...parsed,
       ...(parsed.createdAt
@@ -45,9 +47,10 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string } },
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  await prisma.review.delete({ where: { id: params.id } });
+  const { id } = await params;
+  await prisma.review.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

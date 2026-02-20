@@ -1,8 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
 import { BusinessCard, CategoryCard, SearchBar } from "@/components/ui/Components";
+import JsonLd from "@/components/seo/JsonLd";
 import { prisma } from "@/lib/prisma";
+import { absoluteUrl, collectionPageSchema, createMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = createMetadata({
+  title: "Home",
+  description:
+    "Discover sustainable businesses, eco-friendly shops, and green services near you.",
+  pathname: "/",
+});
 
 function toRecord(value: unknown): Record<string, unknown> {
   if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -62,8 +72,19 @@ export default async function Home() {
     };
   });
 
+  const homeSchema = collectionPageSchema({
+    name: "Featured Sustainable Businesses",
+    description:
+      "A curated list of featured sustainable businesses from Green Living Directory.",
+    pathname: "/",
+    itemUrls: featuredBusinesses.map((business) =>
+      absoluteUrl(`/business/${business.slug}`),
+    ),
+  });
+
   return (
     <>
+      <JsonLd id="home-featured-schema" data={homeSchema} />
       <Navbar />
       <main>
         <section className="relative min-h-[600px] flex items-center justify-center leaf-pattern">
@@ -209,4 +230,3 @@ export default async function Home() {
     </>
   );
 }
-

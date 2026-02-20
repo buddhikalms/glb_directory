@@ -8,6 +8,7 @@ const createBusinessSchema = z.object({
   slug: z.string(),
   tagline: z.string(),
   description: z.string(),
+  seoKeywords: z.string().optional(),
   categoryId: z.string(),
   logo: z.string(),
   coverImage: z.string(),

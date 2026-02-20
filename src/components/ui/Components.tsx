@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {
   Business,
   Category,
@@ -35,7 +36,11 @@ export function BusinessCard({
   averageRating: averageRatingOverride,
   reviewCount: reviewCountOverride,
 }: {
-  business: Business;
+  business: Business & {
+    gallery?: string[];
+    pricingPackageName?: string;
+    packageExpiresAt?: string;
+  };
   category?: BusinessCardCategory;
   badges?: BusinessCardBadge[];
   averageRating?: number;
@@ -44,22 +49,31 @@ export function BusinessCard({
   const category = categoryOverride || getCategoryById(business.categoryId);
   const averageRating =
     averageRatingOverride ?? getAverageRatingByBusinessId(business.id);
-  const reviewCount = reviewCountOverride ?? getReviewCountByBusinessId(business.id);
+  const reviewCount =
+    reviewCountOverride ?? getReviewCountByBusinessId(business.id);
   const badges = badgesOverride
     ? badgesOverride
     : business.badges
         .map((badgeId) => getBadgeById(badgeId))
         .filter((badge): badge is Badge => Boolean(badge));
+  const gallery = Array.isArray(business.gallery) ? business.gallery : [];
+  const primaryImage = business.coverImage || gallery[0] || "";
 
   return (
     <Link href={`/business/${business.slug}`}>
       <div className="group bg-white rounded-2xl overflow-hidden shadow-md card-hover">
         <div className="relative h-48 overflow-hidden">
-          <img
-            src={business.coverImage}
-            alt={business.name}
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-          />
+          {primaryImage ? (
+            <Image
+              src={primaryImage}
+              alt={business.name}
+              fill
+              sizes="(max-width: 768px) 100vw, 33vw"
+              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+            />
+          ) : (
+            <div className="h-full w-full bg-gradient-to-br from-emerald-200 via-emerald-100 to-stone-100" />
+          )}
           {business.featured && (
             <div className="absolute top-3 right-3 bg-emerald-600 text-white px-3 py-1 rounded-full text-xs font-semibold">
               Featured
@@ -76,9 +90,11 @@ export function BusinessCard({
               <p className="text-sm text-gray-600">{business.tagline}</p>
             </div>
             {business.logo && (
-              <img
+              <Image
                 src={business.logo}
                 alt={`${business.name} logo`}
+                width={48}
+                height={48}
                 className="w-12 h-12 rounded-full object-cover ml-3 border-2 border-gray-100"
               />
             )}
@@ -115,15 +131,44 @@ export function BusinessCard({
             )}
           </div>
 
+          {business.pricingPackageName && (
+            <div className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+              Plan: <span className="font-semibold">{business.pricingPackageName}</span>
+              {business.packageExpiresAt && (
+                <span className="text-emerald-700">
+                  {" "}
+                  • Expires {business.packageExpiresAt}
+                </span>
+              )}
+            </div>
+          )}
+
+          {gallery.length > 0 && (
+            <div className="mb-3 flex gap-2 overflow-hidden">
+              {gallery.slice(0, 3).map((image, index) => (
+                <div
+                  key={`${image}-${index}`}
+                  className="relative h-12 flex-1 overflow-hidden rounded-md border"
+                >
+                  <Image
+                    src={image}
+                    alt={`${business.name} gallery ${index + 1}`}
+                    fill
+                    sizes="120px"
+                    className="object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
             <div className="flex items-center gap-2">
               <span className="text-emerald-600">★</span>
               <span>
                 {averageRating > 0 ? averageRating.toFixed(1) : "New"}{" "}
                 {reviewCount > 0 && (
-                  <span className="text-gray-400">
-                    ({reviewCount} reviews)
-                  </span>
+                  <span className="text-gray-400">({reviewCount} reviews)</span>
                 )}
               </span>
             </div>
@@ -173,10 +218,12 @@ export function BadgeTag({
 export function ProductCard({ product }: { product: Product }) {
   return (
     <div className="bg-white rounded-xl overflow-hidden shadow-sm card-hover">
-      <div className="aspect-square overflow-hidden">
-        <img
+      <div className="relative aspect-square overflow-hidden">
+        <Image
           src={product.image}
           alt={product.name}
+          fill
+          sizes="(max-width: 768px) 100vw, 25vw"
           className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
         />
       </div>

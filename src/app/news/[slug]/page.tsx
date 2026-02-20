@@ -1,7 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
+import JsonLd from "@/components/seo/JsonLd";
 import { getAuthorBySlug, getNewsBySlug, newsPosts } from "@/data/mockData";
+import { absoluteUrl, breadcrumbSchema, createMetadata } from "@/lib/seo";
 
 export const dynamicParams = false;
 
@@ -9,12 +13,39 @@ export function generateStaticParams() {
   return newsPosts.map((post) => ({ slug: post.slug }));
 }
 
-export default function NewsDetailPage({
+export async function generateMetadata({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const post = getNewsBySlug(slug);
+
+  if (!post) {
+    return createMetadata({
+      title: "Article Not Found",
+      description: "This article is not available.",
+      pathname: `/news/${slug}`,
+      noIndex: true,
+    });
+  }
+
+  return createMetadata({
+    title: post.title,
+    description: post.excerpt,
+    pathname: `/news/${post.slug}`,
+    type: "article",
+    keywords: [post.category, ...post.tags],
+  });
+}
+
+export default async function NewsDetailPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
 }) {
-  const post = getNewsBySlug(params.slug);
+  const { slug } = await params;
+  const post = getNewsBySlug(slug);
 
   if (!post) {
     return (
@@ -46,9 +77,34 @@ export default function NewsDetailPage({
     .filter((item) => item.id !== post.id)
     .slice(0, 5);
 
-  const categories = Array.from(new Set(newsPosts.map((item) => item.category)));
+  const categories = Array.from(
+    new Set(newsPosts.map((item) => item.category)),
+  );
 
   const author = getAuthorBySlug(post.authorSlug);
+  const articleSchema: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: post.title,
+    description: post.excerpt,
+    author: {
+      "@type": "Person",
+      name: post.author,
+    },
+    image: post.coverImage,
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": absoluteUrl(`/news/${post.slug}`),
+    },
+    keywords: post.tags.join(", "),
+    articleSection: post.category,
+  };
+
+  const newsBreadcrumbSchema = breadcrumbSchema([
+    { name: "Home", pathname: "/" },
+    { name: "News", pathname: "/news" },
+    { name: post.title, pathname: `/news/${post.slug}` },
+  ]);
 
   const paragraphs = post.content
     .split("\n\n")
@@ -57,6 +113,8 @@ export default function NewsDetailPage({
 
   return (
     <>
+      <JsonLd id="news-article-schema" data={articleSchema} />
+      <JsonLd id="news-breadcrumb-schema" data={newsBreadcrumbSchema} />
       <Navbar />
       <main className="min-h-screen bg-stone-50">
         <section className="bg-white border-b border-gray-200">
@@ -102,10 +160,12 @@ export default function NewsDetailPage({
 
         <section className="px-4">
           <div className="max-w-6xl mx-auto -mt-10">
-            <div className="h-80 md:h-[460px] rounded-3xl overflow-hidden shadow-sm">
-              <img
+            <div className="relative h-80 md:h-[460px] rounded-3xl overflow-hidden shadow-sm">
+              <Image
                 src={post.coverImage}
                 alt={post.title}
+                fill
+                sizes="(max-width: 768px) 100vw, 1200px"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -129,10 +189,12 @@ export default function NewsDetailPage({
               {author && (
                 <div className="mt-10 border-t border-gray-100 pt-8">
                   <div className="flex items-start gap-4">
-                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-emerald-100">
-                      <img
+                    <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-emerald-100">
+                      <Image
                         src={author.avatar}
                         alt={author.name}
+                        fill
+                        sizes="64px"
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -143,9 +205,7 @@ export default function NewsDetailPage({
                       <h3 className="text-lg font-bold text-gray-900">
                         {author.name}
                       </h3>
-                      <p className="text-gray-600 text-sm mt-2">
-                        {author.bio}
-                      </p>
+                      <p className="text-gray-600 text-sm mt-2">{author.bio}</p>
                       <Link
                         href={`/authors/${author.slug}`}
                         className="inline-flex items-center text-emerald-700 font-semibold text-sm mt-3"
@@ -170,10 +230,12 @@ export default function NewsDetailPage({
                       href={`/news/${item.slug}`}
                       className="flex items-start gap-3 group"
                     >
-                      <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
-                        <img
+                      <div className="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                        <Image
                           src={item.coverImage}
                           alt={item.title}
+                          fill
+                          sizes="64px"
                           className="w-full h-full object-cover"
                         />
                       </div>
@@ -245,10 +307,12 @@ export default function NewsDetailPage({
                   href={`/news/${item.slug}`}
                   className="bg-white rounded-2xl overflow-hidden shadow-sm card-hover"
                 >
-                  <div className="h-40 overflow-hidden">
-                    <img
+                  <div className="relative h-40 overflow-hidden">
+                    <Image
                       src={item.coverImage}
                       alt={item.title}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 33vw"
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -259,9 +323,7 @@ export default function NewsDetailPage({
                     <h3 className="font-display text-lg font-bold text-gray-900 mb-1">
                       {item.title}
                     </h3>
-                    <p className="text-sm text-gray-600 mb-3">
-                      {item.excerpt}
-                    </p>
+                    <p className="text-sm text-gray-600 mb-3">{item.excerpt}</p>
                     <p className="text-xs text-gray-500">
                       {item.publishedAt} • {item.readTime}
                     </p>

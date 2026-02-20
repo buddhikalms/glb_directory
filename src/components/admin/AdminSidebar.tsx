@@ -266,6 +266,30 @@ export default function AdminSidebar() {
           </svg>
           Reviews
         </Link>
+
+        <Link
+          href="/admin/settings"
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+            isActive("/admin/settings")
+              ? "bg-emerald-600 text-white font-semibold"
+              : "text-sage-200 hover:bg-sage-700"
+          }`}
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M10.325 4.317a1 1 0 011.35-.936l1.784.713a1 1 0 001.073-.228l1.263-1.263a1 1 0 011.414 0l1.414 1.414a1 1 0 010 1.414l-1.263 1.263a1 1 0 00-.228 1.073l.713 1.784a1 1 0 01-.936 1.35h-1.786a1 1 0 00-.949.684l-.641 1.923a1 1 0 01-.949.684h-2a1 1 0 01-.949-.684l-.641-1.923a1 1 0 00-.949-.684H6.19a1 1 0 01-.936-1.35l.713-1.784a1 1 0 00-.228-1.073L4.476 6.26a1 1 0 010-1.414L5.89 3.432a1 1 0 011.414 0l1.263 1.263a1 1 0 001.073.228l1.784-.713z"
+            />
+          </svg>
+          Settings
+        </Link>
       </nav>
 
       <div className="mt-8 pt-6 border-t border-sage-600">

@@ -1,8 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
 import { BusinessCard } from "@/components/ui/Components";
+import JsonLd from "@/components/seo/JsonLd";
 import { prisma } from "@/lib/prisma";
+import {
+  absoluteUrl,
+  breadcrumbSchema,
+  collectionPageSchema,
+  createMetadata,
+} from "@/lib/seo";
 
 function toRecord(value: unknown): Record<string, unknown> {
   if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -15,13 +23,47 @@ function asString(value: unknown) {
   return typeof value === "string" ? value : "";
 }
 
+function toStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const category = await prisma.category.findUnique({
+    where: { slug },
+    select: { name: true, description: true },
+  });
+
+  if (!category) {
+    return createMetadata({
+      title: "Category Not Found",
+      description: "This category is not available in the directory.",
+      pathname: `/category/${slug}`,
+      noIndex: true,
+    });
+  }
+
+  return createMetadata({
+    title: `${category.name} Businesses`,
+    description: category.description,
+    pathname: `/category/${slug}`,
+  });
+}
+
 export default async function CategoryPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
+  const { slug } = await params;
   const category = await prisma.category.findUnique({
-    where: { slug: params.slug },
+    where: { slug },
     select: {
       id: true,
       name: true,
@@ -60,18 +102,27 @@ export default async function CategoryPage({
     },
     include: {
       badges: { include: { badge: true } },
+      pricingPackage: { select: { galleryLimit: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 
   const categoryBusinesses = categoryBusinessesRaw.map((item) => {
     const location = toRecord(item.location);
+    const gallery = toStringArray(item.gallery);
+    const galleryLimit = item.pricingPackage?.galleryLimit;
+    const visibleGallery =
+      typeof galleryLimit === "number"
+        ? gallery.slice(0, Math.max(galleryLimit, 0))
+        : gallery;
+
     return {
       id: item.id,
       slug: item.slug,
       name: item.name,
       tagline: item.tagline,
       coverImage: item.coverImage,
+      gallery: visibleGallery,
       logo: item.logo,
       featured: item.featured,
       likes: item.likes,
@@ -86,8 +137,25 @@ export default async function CategoryPage({
     };
   });
 
+  const categoryPageSchema = collectionPageSchema({
+    name: `${category.name} Businesses`,
+    description: category.description,
+    pathname: `/category/${category.slug}`,
+    itemUrls: categoryBusinesses.map((business) =>
+      absoluteUrl(`/business/${business.slug}`),
+    ),
+  });
+
+  const categoryBreadcrumbSchema = breadcrumbSchema([
+    { name: "Home", pathname: "/" },
+    { name: "Categories", pathname: "/categories" },
+    { name: category.name, pathname: `/category/${category.slug}` },
+  ]);
+
   return (
     <>
+      <JsonLd id="category-page-schema" data={categoryPageSchema} />
+      <JsonLd id="category-breadcrumb-schema" data={categoryBreadcrumbSchema} />
       <Navbar />
       <main className="min-h-screen bg-stone-50">
         <section className="bg-white border-b border-gray-200 py-12 px-4">
@@ -142,4 +210,3 @@ export default async function CategoryPage({
     </>
   );
 }
-

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 
@@ -14,33 +14,36 @@ const updateAuthorSchema = z.object({
 });
 
 export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } },
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const data = await prisma.authorProfile.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { user: true },
   });
   return NextResponse.json(data);
 }
 
 export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } },
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const body = await req.json();
   const parsed = updateAuthorSchema.parse(body);
   const updated = await prisma.authorProfile.update({
-    where: { id: params.id },
+    where: { id },
     data: parsed,
   });
   return NextResponse.json(updated);
 }
 
 export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string } },
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  await prisma.authorProfile.delete({ where: { id: params.id } });
+  const { id } = await params;
+  await prisma.authorProfile.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

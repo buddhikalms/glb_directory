@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 
@@ -97,9 +98,11 @@ export default function MediaPage() {
                     className="bg-white rounded-xl shadow-md overflow-hidden group"
                   >
                     <div className="relative h-40 overflow-hidden bg-gray-100">
-                      <img
+                      <Image
                         src={image.url}
                         alt={image.name}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 25vw"
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform"
                       />
                       <button

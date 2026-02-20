@@ -10,10 +10,12 @@ const allowedMimeToExt: Record<string, string> = {
   "image/gif": "gif",
 };
 
-type UploadKind = "logo" | "cover";
+type UploadKind = "logo" | "cover" | "gallery";
 
 function normalizeKind(value: FormDataEntryValue | null): UploadKind {
-  return value === "logo" ? "logo" : "cover";
+  if (value === "logo") return "logo";
+  if (value === "gallery") return "gallery";
+  return "cover";
 }
 
 export async function POST(req: Request) {
@@ -45,7 +47,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const folderSegment = kind === "logo" ? "logos" : "covers";
+    const folderSegment =
+      kind === "logo" ? "logos" : kind === "gallery" ? "gallery" : "covers";
     const relativeDir = path.join("uploads", "businesses", folderSegment);
     const absoluteDir = path.join(process.cwd(), "public", relativeDir);
 
@@ -71,4 +74,3 @@ export async function POST(req: Request) {
     );
   }
 }
-

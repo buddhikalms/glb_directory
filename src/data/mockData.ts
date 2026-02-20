@@ -45,6 +45,7 @@ export interface PricingPackage {
   billingPeriod: "monthly" | "yearly";
   description: string;
   features: string[];
+  galleryLimit: number;
   featured: boolean;
   active: boolean;
 }
@@ -252,6 +253,7 @@ export const pricingPackages: PricingPackage[] = [
       "Contact information",
       "Email support",
     ],
+    galleryLimit: 5,
     featured: false,
     active: true,
   },
@@ -270,6 +272,7 @@ export const pricingPackages: PricingPackage[] = [
       "Priority support",
       "Analytics dashboard",
     ],
+    galleryLimit: 12,
     featured: true,
     active: true,
   },
@@ -289,6 +292,7 @@ export const pricingPackages: PricingPackage[] = [
       "Phone support",
       "Custom branding",
     ],
+    galleryLimit: 30,
     featured: false,
     active: true,
   },

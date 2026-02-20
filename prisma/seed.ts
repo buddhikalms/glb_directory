@@ -1,4 +1,9 @@
-import { UserRole, BusinessStatus, BillingPeriod, PostStatus } from "@prisma/client";
+import {
+  UserRole,
+  BusinessStatus,
+  BillingPeriod,
+  PostStatus,
+} from "@prisma/client";
 import { prisma } from "../src/lib/prisma";
 import {
   users,
@@ -20,7 +25,8 @@ const sampleCategories = [
     name: "Home & Garden",
     slug: "home-garden",
     icon: "🏡",
-    description: "Eco-friendly home products, decor, and sustainable gardening.",
+    description:
+      "Eco-friendly home products, decor, and sustainable gardening.",
     color: "green",
   },
   {
@@ -28,7 +34,8 @@ const sampleCategories = [
     name: "Sustainable Fashion",
     slug: "sustainable-fashion",
     icon: "👕",
-    description: "Clothing and accessories made with ethical, low-impact practices.",
+    description:
+      "Clothing and accessories made with ethical, low-impact practices.",
     color: "emerald",
   },
   {
@@ -48,6 +55,10 @@ const sampleCategories = [
     color: "cyan",
   },
 ];
+
+function fitVarchar(value: string | undefined | null, max = 191) {
+  return (value || "").slice(0, max);
+}
 
 async function main() {
   await prisma.businessBadge.deleteMany();
@@ -114,6 +125,7 @@ async function main() {
       billingPeriod: item.billingPeriod as BillingPeriod,
       description: item.description,
       features: item.features,
+      galleryLimit: item.galleryLimit,
       featured: item.featured,
       active: item.active,
     })),
@@ -146,7 +158,9 @@ async function main() {
       name: item.name,
       slug: item.slug,
       tagline: item.tagline,
-      description: item.description,
+      description: fitVarchar(item.description),
+      gallery: [],
+      pricingPackageId: "1",
       categoryId: item.categoryId,
       logo: item.logo,
       coverImage: item.coverImage,
@@ -276,7 +290,7 @@ async function main() {
       category: item.category,
       authorSlug: item.authorSlug,
       excerpt: item.excerpt,
-      content: item.content,
+      content: fitVarchar(item.content),
       coverImage: item.coverImage,
       author: item.author,
       publishedAt: new Date(item.publishedAt),

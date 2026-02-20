@@ -11,20 +11,65 @@ export interface CategoryOption {
   name: string;
 }
 
+export interface PricingPackageOption {
+  id: string;
+  name: string;
+  billingPeriod: "monthly" | "yearly";
+  galleryLimit: number;
+  active: boolean;
+}
+
+export interface BadgeOption {
+  id: string;
+  name: string;
+  icon: string;
+}
+
+export interface BusinessProductInput {
+  name: string;
+  description: string;
+  price: number;
+  image: string;
+  inStock: boolean;
+}
+
+export interface BusinessMenuItemInput {
+  category: string;
+  name: string;
+  description: string;
+  price: number;
+  dietary: string[];
+}
+
+export interface BusinessServiceInput {
+  name: string;
+  description: string;
+  pricing: string;
+}
+
 export interface BusinessRow {
   id: string;
   name: string;
   slug: string;
   tagline: string;
   description: string;
+  seoKeywords: string;
+  gallery: string[];
   logo: string;
   coverImage: string;
   ownerId: string;
+  pricingPackageId: string;
+  pricingPackage?: {
+    id: string;
+    name: string;
+    billingPeriod: "monthly" | "yearly";
+  };
   status: BusinessStatus;
   featured: boolean;
   categoryId: string;
   createdAt: string;
   location: {
+    country: string;
     city: string;
     address: string;
     postcode: string;
@@ -40,6 +85,11 @@ export interface BusinessRow {
   category?: {
     name?: string;
   };
+  badgeIds: string[];
+  badges: BadgeOption[];
+  products: BusinessProductInput[];
+  menuItems: BusinessMenuItemInput[];
+  services: BusinessServiceInput[];
 }
 
 export interface BusinessFormData {
@@ -47,10 +97,14 @@ export interface BusinessFormData {
   slug: string;
   tagline: string;
   description: string;
+  seoKeywords: string;
+  gallery: string[];
   categoryId: string;
+  pricingPackageId: string;
   ownerId: string;
   logo: string;
   coverImage: string;
+  country: string;
   city: string;
   address: string;
   postcode: string;
@@ -59,6 +113,10 @@ export interface BusinessFormData {
   website: string;
   status: BusinessStatus;
   featured: boolean;
+  badgeIds: string[];
+  products: BusinessProductInput[];
+  menuItems: BusinessMenuItemInput[];
+  services: BusinessServiceInput[];
 }
 
 export const emptyForm: BusinessFormData = {
@@ -66,10 +124,14 @@ export const emptyForm: BusinessFormData = {
   slug: "",
   tagline: "",
   description: "",
+  seoKeywords: "",
+  gallery: [],
   categoryId: "",
+  pricingPackageId: "",
   ownerId: "",
   logo: "",
   coverImage: "",
+  country: "",
   city: "",
   address: "",
   postcode: "",
@@ -78,6 +140,10 @@ export const emptyForm: BusinessFormData = {
   website: "",
   status: "pending",
   featured: false,
+  badgeIds: [],
+  products: [],
+  menuItems: [],
+  services: [],
 };
 
 export function slugify(value: string) {
@@ -87,4 +153,3 @@ export function slugify(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 }
-
