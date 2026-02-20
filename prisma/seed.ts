@@ -1,9 +1,3 @@
-import {
-  UserRole,
-  BusinessStatus,
-  BillingPeriod,
-  PostStatus,
-} from "@prisma/client";
 import { prisma } from "../src/lib/prisma";
 import {
   users,
@@ -122,7 +116,7 @@ async function main() {
       id: item.id,
       name: item.name,
       price: item.price,
-      billingPeriod: item.billingPeriod as BillingPeriod,
+      billingPeriod: item.billingPeriod as "monthly" | "yearly",
       description: item.description,
       features: item.features,
       galleryLimit: item.galleryLimit,
@@ -136,7 +130,13 @@ async function main() {
       id: item.id,
       email: item.email,
       name: item.name,
-      role: item.role as UserRole,
+      role: item.role as
+        | "admin"
+        | "business_owner"
+        | "author"
+        | "editor"
+        | "subscriber"
+        | "guest",
       slug: item.slug || null,
       avatar: item.avatar || null,
       bio: item.bio || null,
@@ -169,7 +169,7 @@ async function main() {
       contact: item.contact,
       social: item.social,
       sustainability: item.sustainability,
-      status: item.status as BusinessStatus,
+      status: item.status as "pending" | "approved" | "rejected",
       featured: item.featured,
       views: item.views,
       createdAt: new Date(item.createdAt),
@@ -254,7 +254,7 @@ async function main() {
               id: userId,
               email: `${item.slug}@authors.local`,
               name: item.name,
-              role: UserRole.admin,
+              role: "admin",
               slug: item.slug,
               avatar: item.avatar || null,
               bio: item.bio || null,
@@ -300,7 +300,7 @@ async function main() {
       seoTitle: null,
       seoDescription: null,
       seoKeywords: null,
-      status: "published" as PostStatus,
+      status: "published",
       authorId: authorBySlug.get(item.authorSlug) || authors[0].id,
     })),
   });
