@@ -49,6 +49,7 @@
   "/owners/[slug]/page": "app/owners/[slug]/page.js",
   "/page": "app/page.js",
   "/robots.txt/route": "app/robots.txt/route.js",
+  "/simple/page": "app/simple/page.js",
   "/sitemap.xml/route": "app/sitemap.xml/route.js",
   "/submit/page": "app/submit/page.js"
 }

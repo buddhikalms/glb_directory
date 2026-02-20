@@ -24,6 +24,10 @@ export default function UsersClient({ initialUsers, businesses }: UsersClientPro
   const [formData, setFormData] = useState<UserFormData>(emptyUserForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<"all" | UserRow["role"]>("all");
+  const [businessFilter, setBusinessFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<"name" | "email" | "role">("name");
 
   const user =
     typeof window !== "undefined"
@@ -43,6 +47,38 @@ export default function UsersClient({ initialUsers, businesses }: UsersClientPro
   const businessMap = useMemo(() => {
     return new Map(businesses.map((business) => [business.id, business.name]));
   }, [businesses]);
+
+  const visibleUsers = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const filtered = allUsers.filter((item) => {
+      const businessName = item.businessId
+        ? businessMap.get(item.businessId) || item.businessName
+        : "N/A";
+      const matchesSearch =
+        !query ||
+        item.name.toLowerCase().includes(query) ||
+        item.email.toLowerCase().includes(query) ||
+        (item.location || "").toLowerCase().includes(query) ||
+        businessName.toLowerCase().includes(query);
+      const matchesRole = roleFilter === "all" || item.role === roleFilter;
+      const matchesBusiness =
+        businessFilter === "all" || item.businessId === businessFilter;
+      return matchesSearch && matchesRole && matchesBusiness;
+    });
+
+    return filtered.sort((a, b) => {
+      if (sortBy === "email") return a.email.localeCompare(b.email);
+      if (sortBy === "role") return a.role.localeCompare(b.role);
+      return a.name.localeCompare(b.name);
+    });
+  }, [
+    allUsers,
+    businessFilter,
+    businessMap,
+    roleFilter,
+    searchQuery,
+    sortBy,
+  ]);
 
   const openCreate = () => {
     setEditingId(null);
@@ -138,6 +174,52 @@ export default function UsersClient({ initialUsers, businesses }: UsersClientPro
             <button onClick={openCreate} className="btn-primary">
               + Add User
             </button>
+          </div>
+          <div className="mb-6 grid grid-cols-1 gap-3 rounded-xl bg-white p-4 shadow-sm md:grid-cols-4">
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search name, email, location, business"
+              className="rounded-lg border-2 border-gray-200 px-4 py-2 focus:border-emerald-500 focus:outline-none"
+            />
+            <select
+              value={roleFilter}
+              onChange={(e) =>
+                setRoleFilter(e.target.value as "all" | UserRow["role"])
+              }
+              className="rounded-lg border-2 border-gray-200 px-4 py-2 focus:border-emerald-500 focus:outline-none"
+            >
+              <option value="all">All roles</option>
+              <option value="admin">Admin</option>
+              <option value="business_owner">Business Owner</option>
+              <option value="author">Author</option>
+              <option value="editor">Editor</option>
+              <option value="subscriber">Subscriber</option>
+              <option value="guest">Guest</option>
+            </select>
+            <select
+              value={businessFilter}
+              onChange={(e) => setBusinessFilter(e.target.value)}
+              className="rounded-lg border-2 border-gray-200 px-4 py-2 focus:border-emerald-500 focus:outline-none"
+            >
+              <option value="all">All businesses</option>
+              {businesses.map((business) => (
+                <option key={business.id} value={business.id}>
+                  {business.name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={sortBy}
+              onChange={(e) =>
+                setSortBy(e.target.value as "name" | "email" | "role")
+              }
+              className="rounded-lg border-2 border-gray-200 px-4 py-2 focus:border-emerald-500 focus:outline-none"
+            >
+              <option value="name">Sort: Name A-Z</option>
+              <option value="email">Sort: Email A-Z</option>
+              <option value="role">Sort: Role</option>
+            </select>
           </div>
 
           {error && (
@@ -321,7 +403,7 @@ export default function UsersClient({ initialUsers, businesses }: UsersClientPro
               <div className="col-span-1 text-right">Actions</div>
             </div>
 
-            {allUsers.map((item) => {
+            {visibleUsers.map((item) => {
               const businessName = item.businessId
                 ? businessMap.get(item.businessId) || item.businessName
                 : "N/A";
@@ -357,7 +439,7 @@ export default function UsersClient({ initialUsers, businesses }: UsersClientPro
                       onClick={() => openEdit(item)}
                       className="mr-3 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
                     >
-                      Edit
+                      Quick Edit
                     </button>
                     <button
                       onClick={() => handleDelete(item.id)}
@@ -370,7 +452,7 @@ export default function UsersClient({ initialUsers, businesses }: UsersClientPro
               );
             })}
 
-            {allUsers.length === 0 && (
+            {visibleUsers.length === 0 && (
               <div className="p-10 text-center text-gray-600">No users available.</div>
             )}
           </div>

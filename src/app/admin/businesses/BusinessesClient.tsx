@@ -96,6 +96,12 @@ export default function BusinessesClient({
   const [filter, setFilter] = useState<
     "all" | "approved" | "pending" | "rejected"
   >("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [packageFilter, setPackageFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<
+    "newest" | "oldest" | "name" | "expiry"
+  >("newest");
   const [providerSettings, setProviderSettings] =
     useState<LocationProviderSettings>({
       provider: "geoapify",
@@ -157,10 +163,53 @@ export default function BusinessesClient({
     }
   }, []);
 
-  const filteredBusinesses =
-    filter === "all"
-      ? allBusinesses
-      : allBusinesses.filter((item) => item.status === filter);
+  const filteredBusinesses = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    const filtered = allBusinesses.filter((item) => {
+      const matchesStatus = filter === "all" ? true : item.status === filter;
+      const matchesSearch =
+        !query ||
+        item.name.toLowerCase().includes(query) ||
+        item.slug.toLowerCase().includes(query) ||
+        (item.owner?.name || "").toLowerCase().includes(query) ||
+        (item.location?.city || "").toLowerCase().includes(query);
+      const matchesCategory =
+        categoryFilter === "all" || item.categoryId === categoryFilter;
+      const matchesPackage =
+        packageFilter === "all" || (item.pricingPackageId || "") === packageFilter;
+
+      return (
+        matchesStatus && matchesSearch && matchesCategory && matchesPackage
+      );
+    });
+
+    return filtered.sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      if (sortBy === "oldest") {
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      }
+      if (sortBy === "expiry") {
+        const expiryA = calculatePackageExpiryDate(
+          a.createdAt,
+          a.pricingPackage?.billingPeriod,
+        )?.getTime();
+        const expiryB = calculatePackageExpiryDate(
+          b.createdAt,
+          b.pricingPackage?.billingPeriod,
+        )?.getTime();
+        return (expiryA || 0) - (expiryB || 0);
+      }
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [
+    allBusinesses,
+    categoryFilter,
+    filter,
+    packageFilter,
+    searchQuery,
+    sortBy,
+  ]);
   const isUploading = uploading.logo || uploading.coverImage || uploading.gallery;
 
   const canSubmit = useMemo(() => {
@@ -1601,6 +1650,55 @@ export default function BusinessesClient({
             )}
           </div>}
 
+          {!standaloneForm && (
+            <div className="mb-6 grid grid-cols-1 gap-3 rounded-xl bg-white p-4 shadow-sm md:grid-cols-4">
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search business, slug, owner, city"
+                className="rounded-lg border-2 border-gray-200 px-4 py-2 focus:border-emerald-500 focus:outline-none"
+              />
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="rounded-lg border-2 border-gray-200 px-4 py-2 focus:border-emerald-500 focus:outline-none"
+              >
+                <option value="all">All categories</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={packageFilter}
+                onChange={(e) => setPackageFilter(e.target.value)}
+                className="rounded-lg border-2 border-gray-200 px-4 py-2 focus:border-emerald-500 focus:outline-none"
+              >
+                <option value="all">All packages</option>
+                {packages.map((pkg) => (
+                  <option key={pkg.id} value={pkg.id}>
+                    {pkg.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={sortBy}
+                onChange={(e) =>
+                  setSortBy(
+                    e.target.value as "newest" | "oldest" | "name" | "expiry",
+                  )
+                }
+                className="rounded-lg border-2 border-gray-200 px-4 py-2 focus:border-emerald-500 focus:outline-none"
+              >
+                <option value="newest">Sort: Newest</option>
+                <option value="oldest">Sort: Oldest</option>
+                <option value="name">Sort: Name A-Z</option>
+                <option value="expiry">Sort: Expiry</option>
+              </select>
+            </div>
+          )}
+
           {!standaloneForm && (filteredBusinesses.length > 0 ? (
             <div className="overflow-hidden rounded-2xl bg-white shadow-md">
               <div className="overflow-x-auto">
@@ -1693,31 +1791,32 @@ export default function BusinessesClient({
                         <td className="px-6 py-4">
                           <div className="flex gap-2">
                             <button
+                              onClick={() => openEdit(business)}
+                              className="rounded-lg bg-indigo-100 px-3 py-1 text-sm font-semibold text-indigo-700 hover:bg-indigo-200"
+                            >
+                              Quick Edit
+                            </button>
+                            <button
                               onClick={() => router.push(`/admin/businesses/${business.id}`)}
                               className="rounded-lg bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700 hover:bg-blue-200"
                             >
                               Edit
                             </button>
-                            {business.status !== "approved" && (
-                              <button
-                                onClick={() =>
-                                  handleStatusChange(business.id, "approved")
+                            <label className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                              <input
+                                type="checkbox"
+                                checked={business.status === "approved"}
+                                onChange={(e) =>
+                                  handleStatusChange(
+                                    business.id,
+                                    e.target.checked ? "approved" : "pending",
+                                  )
                                 }
-                                className="rounded-lg bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700 hover:bg-emerald-200"
-                              >
-                                Approve
-                              </button>
-                            )}
-                            {business.status !== "rejected" && (
-                              <button
-                                onClick={() =>
-                                  handleStatusChange(business.id, "rejected")
-                                }
-                                className="rounded-lg bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-700 hover:bg-amber-200"
-                              >
-                                Reject
-                              </button>
-                            )}
+                              />
+                              {business.status === "approved"
+                                ? "Published"
+                                : "Unpublished"}
+                            </label>
                             <button
                               onClick={() => handleDelete(business.id)}
                               className="rounded-lg bg-gray-100 px-3 py-1 text-sm font-semibold text-gray-700 hover:bg-gray-200"

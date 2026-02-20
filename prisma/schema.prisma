@@ -1,10 +1,10 @@
-generator client {
-  provider   = "prisma-client-js"
-  engineType = "binary"
-}
-
 datasource db {
   provider = "mysql"
+}
+
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "client"
 }
 
 enum UserRole {
@@ -47,8 +47,8 @@ model User {
   businessId String?
 
   // Relations
-  business        Business?  @relation("BusinessUsers", fields: [businessId], references: [id])
-  ownedBusinesses Business[] @relation("BusinessOwner")
+  business        Business?      @relation("BusinessUsers", fields: [businessId], references: [id])
+  ownedBusinesses Business[]     @relation("BusinessOwner")
   authorProfile   AuthorProfile?
 
   createdAt DateTime @default(now())
@@ -91,26 +91,26 @@ model PricingPackage {
 }
 
 model Business {
-  id             String         @id
-  name           String
-  slug           String         @unique
-  tagline        String
-  description    String
-  seoKeywords    String?
-  gallery        Json?
-  categoryId     String
+  id               String         @id
+  name             String
+  slug             String         @unique
+  tagline          String
+  description      String
+  seoKeywords      String?
+  gallery          Json?
+  categoryId       String
   pricingPackageId String?
-  logo           String
-  coverImage     String
-  likes          Int            @default(0)
-  location       Json
-  contact        Json
-  social         Json
-  sustainability Json
-  status         BusinessStatus @default(pending)
-  featured       Boolean        @default(false)
-  views          Int            @default(0)
-  createdAt      DateTime       @default(now())
+  logo             String
+  coverImage       String
+  likes            Int            @default(0)
+  location         Json
+  contact          Json
+  social           Json
+  sustainability   Json
+  status           BusinessStatus @default(pending)
+  featured         Boolean        @default(false)
+  views            Int            @default(0)
+  createdAt        DateTime       @default(now())
 
   // Owner (One owner → many businesses)
   ownerId String
@@ -119,7 +119,7 @@ model Business {
   // Staff / Members (One business → many users)
   users User[] @relation("BusinessUsers")
 
-  category Category @relation(fields: [categoryId], references: [id])
+  category       Category        @relation(fields: [categoryId], references: [id])
   pricingPackage PricingPackage? @relation(fields: [pricingPackageId], references: [id])
 
   products  Product[]
@@ -196,7 +196,7 @@ model AuthorProfile {
   links    Json
   userId   String  @unique
 
-  user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   posts NewsPost[]
 }
 
@@ -207,7 +207,7 @@ model NewsPost {
   category       String
   authorSlug     String
   excerpt        String
-  content        String
+  content        String     @db.LongText
   coverImage     String
   author         String
   publishedAt    DateTime?
@@ -222,7 +222,3 @@ model NewsPost {
 
   authorProfile AuthorProfile @relation(fields: [authorId], references: [id])
 }
-
-
-
-

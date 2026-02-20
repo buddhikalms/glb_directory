@@ -9,6 +9,25 @@ import { absoluteUrl, breadcrumbSchema, createMetadata } from "@/lib/seo";
 
 export const dynamicParams = false;
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function toArticleHtml(content: string) {
+  const value = (content || "").trim();
+  if (!value) return "";
+  if (/<[a-z][\s\S]*>/i.test(value)) return value;
+  return value
+    .split("\n\n")
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`)
+    .join("");
+}
+
 export function generateStaticParams() {
   return newsPosts.map((post) => ({ slug: post.slug }));
 }
@@ -106,10 +125,7 @@ export default async function NewsDetailPage({
     { name: post.title, pathname: `/news/${post.slug}` },
   ]);
 
-  const paragraphs = post.content
-    .split("\n\n")
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean);
+  const articleHtml = toArticleHtml(post.content);
 
   return (
     <>
@@ -175,16 +191,10 @@ export default async function NewsDetailPage({
         <section className="py-12 px-4">
           <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-10">
             <article className="bg-white rounded-3xl p-8 md:p-10 shadow-sm">
-              {paragraphs.map((paragraph, index) => (
-                <p
-                  key={index}
-                  className={`text-gray-700 text-lg leading-relaxed ${
-                    index === paragraphs.length - 1 ? "" : "mb-6"
-                  }`}
-                >
-                  {paragraph}
-                </p>
-              ))}
+              <div
+                className="prose prose-lg max-w-none text-gray-700"
+                dangerouslySetInnerHTML={{ __html: articleHtml }}
+              />
 
               {author && (
                 <div className="mt-10 border-t border-gray-100 pt-8">
