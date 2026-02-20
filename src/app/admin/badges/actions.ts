@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import type { BadgeFormData, BadgeRow } from "./types";
 
 function assertRequired(input: BadgeFormData) {
@@ -84,7 +85,7 @@ export async function updateBadgeAction(id: string, input: BadgeFormData) {
 }
 
 export async function deleteBadgeAction(id: string) {
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.businessBadge.deleteMany({ where: { badgeId: id } });
     await tx.badge.delete({ where: { id } });
   });
