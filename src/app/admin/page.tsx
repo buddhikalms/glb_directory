@@ -174,6 +174,17 @@ export default function AdminPage() {
               </a>
 
               <a
+                href="/admin/payments"
+                className="p-6 border-2 border-gray-200 rounded-xl hover:border-emerald-600 hover:bg-emerald-50 transition-all"
+              >
+                <div className="text-3xl mb-2">ðŸ’³</div>
+                <h3 className="font-semibold text-gray-900 mb-1">Payments</h3>
+                <p className="text-sm text-gray-600">
+                  Monitor subscriptions and one-time checkouts
+                </p>
+              </a>
+
+              <a
                 href="/admin/authors"
                 className="p-6 border-2 border-gray-200 rounded-xl hover:border-emerald-600 hover:bg-emerald-50 transition-all"
               >

@@ -1,27 +1,42 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
   const { user, isAuthenticated, logout } = useAuth();
+
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      if (!userMenuRef.current) return;
+      if (!userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, []);
 
   return (
     <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm shadow-sm border-b border-emerald-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2 group">
-            <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-xl">🌿</span>
-            </div>
-            <div>
-              <div className="font-display text-xl font-bold text-gray-900 group-hover:text-emerald-600 transition-colors">
-                Green Living Directory
-              </div>
-            </div>
+          <Link href="/" className="flex items-center space-x-3 group">
+            <Image
+              src="/greenliving-blog.png"
+              alt="Green Living Blog logo"
+              width={160}
+              height={40}
+              className="h-10 w-auto"
+              priority
+            />
           </Link>
 
           {/* Desktop Menu */}
@@ -48,12 +63,32 @@ export default function Navbar() {
                     Dashboard
                   </Link>
                 )}
-                <button
-                  onClick={logout}
-                  className="text-gray-700 hover:text-emerald-600 transition-colors font-medium"
-                >
-                  Logout
-                </button>
+                <div className="relative" ref={userMenuRef}>
+                  <button
+                    onClick={() => setShowUserMenu((prev) => !prev)}
+                    className="text-gray-700 hover:text-emerald-600 transition-colors font-medium"
+                  >
+                    {user?.name || 'Account'}
+                  </button>
+                  {showUserMenu && (
+                    <div className="absolute right-0 mt-2 w-72 rounded-xl border border-gray-200 bg-white shadow-xl p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">Signed in as</p>
+                      <p className="text-sm font-semibold text-gray-900">{user?.name}</p>
+                      <p className="text-xs text-gray-600 break-all">{user?.email}</p>
+                      <p className="mt-2 inline-block rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+                        {user?.role?.replace('_', ' ')}
+                      </p>
+                      <div className="mt-3 border-t border-gray-100 pt-3">
+                        <button
+                          onClick={() => logout()}
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 text-left"
+                        >
+                          Logout
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </>
             ) : (
               <Link href="/login" className="text-gray-700 hover:text-emerald-600 transition-colors font-medium">
@@ -113,6 +148,14 @@ export default function Navbar() {
             
             {isAuthenticated ? (
               <>
+                <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3">
+                  <p className="text-xs uppercase tracking-wide text-emerald-700">Signed in as</p>
+                  <p className="text-sm font-semibold text-gray-900">{user?.name}</p>
+                  <p className="text-xs text-gray-600 break-all">{user?.email}</p>
+                  <p className="mt-2 inline-block rounded-full bg-white px-2 py-1 text-xs font-semibold text-emerald-700">
+                    {user?.role?.replace('_', ' ')}
+                  </p>
+                </div>
                 {user?.role === 'admin' && (
                   <Link 
                     href="/admin" 
@@ -164,3 +207,4 @@ export default function Navbar() {
     </nav>
   );
 }
+

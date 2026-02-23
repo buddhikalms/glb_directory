@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import AuthSessionProvider from "@/components/auth/SessionProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import JsonLd from "@/components/seo/JsonLd";
 import {
@@ -32,11 +33,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AuthProvider>
-          <JsonLd id="org-schema" data={organizationSchema()} />
-          <JsonLd id="website-schema" data={websiteSchema()} />
-          {children}
-        </AuthProvider>
+        <AuthSessionProvider>
+          <AuthProvider>
+            <JsonLd id="org-schema" data={organizationSchema()} />
+            <JsonLd id="website-schema" data={websiteSchema()} />
+            {children}
+          </AuthProvider>
+        </AuthSessionProvider>
       </body>
     </html>
   );

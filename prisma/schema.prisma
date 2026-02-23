@@ -3,8 +3,7 @@ datasource db {
 }
 
 generator client {
-  provider   = "prisma-client-js"
-  engineType = "client"
+  provider = "prisma-client-js"
 }
 
 enum UserRole {
@@ -33,30 +32,68 @@ enum PostStatus {
 }
 
 model User {
-  id       String   @id
-  email    String   @unique
-  name     String
-  role     UserRole
-  slug     String?  @unique
-  avatar   String?
-  bio      String?
-  location String?
-  title    String?
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String    @default("")
+  image         String?
+  role          UserRole  @default(guest)
+  emailVerified DateTime?
+  passwordHash  String?
+  slug          String?   @unique
+  avatar        String?
+  bio           String?
+  location      String?
+  title         String?
+  businessId    String?
 
-  // Optional: user works at one business
-  businessId String?
-
-  // Relations
   business        Business?      @relation("BusinessUsers", fields: [businessId], references: [id])
   ownedBusinesses Business[]     @relation("BusinessOwner")
   authorProfile   AuthorProfile?
+  accounts        Account[]
+  sessions        Session[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
 model Category {
-  id          String @id
+  id          String @id @default(cuid())
   name        String
   slug        String @unique
   icon        String
@@ -67,7 +104,7 @@ model Category {
 }
 
 model Badge {
-  id    String @id
+  id    String @id @default(cuid())
   name  String
   slug  String @unique
   icon  String
@@ -77,21 +114,21 @@ model Badge {
 }
 
 model PricingPackage {
-  id            String        @id
+  id            String        @id @default(cuid())
   name          String
   price         Float
   billingPeriod BillingPeriod
   description   String
   features      Json
   galleryLimit  Int           @default(0)
-  featured      Boolean
-  active        Boolean
+  featured      Boolean       @default(false)
+  active        Boolean       @default(true)
 
   businesses Business[]
 }
 
 model Business {
-  id               String         @id
+  id               String         @id @default(cuid())
   name             String
   slug             String         @unique
   tagline          String
@@ -110,13 +147,10 @@ model Business {
   status           BusinessStatus @default(pending)
   featured         Boolean        @default(false)
   views            Int            @default(0)
-  createdAt        DateTime       @default(now())
 
-  // Owner (One owner → many businesses)
   ownerId String
   owner   User   @relation("BusinessOwner", fields: [ownerId], references: [id])
 
-  // Staff / Members (One business → many users)
   users User[] @relation("BusinessUsers")
 
   category       Category        @relation(fields: [categoryId], references: [id])
@@ -127,66 +161,77 @@ model Business {
   services  Service[]
   reviews   Review[]
   badges    BusinessBadge[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model BusinessBadge {
   businessId String
   badgeId    String
 
-  business Business @relation(fields: [businessId], references: [id])
-  badge    Badge    @relation(fields: [badgeId], references: [id])
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  badge    Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
 
   @@id([businessId, badgeId])
 }
 
 model Product {
-  id          String  @id
+  id          String  @id @default(cuid())
   businessId  String
   name        String
   description String
   price       Float
   image       String
-  inStock     Boolean
+  inStock     Boolean @default(true)
 
-  business Business @relation(fields: [businessId], references: [id])
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model MenuItem {
-  id          String @id
+  id          String @id @default(cuid())
   businessId  String
   category    String
   name        String
   description String
   price       Float
-  dietary     Json
+  dietary     Json?
 
-  business Business @relation(fields: [businessId], references: [id])
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
 }
 
 model Service {
-  id          String @id
+  id          String @id @default(cuid())
   businessId  String
   name        String
   description String
   pricing     String
 
-  business Business @relation(fields: [businessId], references: [id])
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
 }
 
 model Review {
-  id         String   @id
+  id         String  @id @default(cuid())
   businessId String
   authorName String
   rating     Int
   comment    String
-  createdAt  DateTime @default(now())
-  flagged    Boolean  @default(false)
+  flagged    Boolean @default(false)
 
-  business Business @relation(fields: [businessId], references: [id])
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
 }
 
 model AuthorProfile {
-  id       String  @id
+  id       String  @id @default(cuid())
   name     String
   slug     String  @unique
   title    String
@@ -198,10 +243,12 @@ model AuthorProfile {
 
   user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   posts NewsPost[]
+
+  createdAt DateTime @default(now())
 }
 
 model NewsPost {
-  id             String     @id
+  id             String     @id @default(cuid())
   title          String
   slug           String     @unique
   category       String
@@ -220,5 +267,8 @@ model NewsPost {
   status         PostStatus @default(draft)
   authorId       String
 
-  authorProfile AuthorProfile @relation(fields: [authorId], references: [id])
+  authorProfile AuthorProfile @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

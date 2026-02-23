@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 
 export default function Footer() {
@@ -7,11 +8,14 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* About */}
           <div>
-            <div className="flex items-center space-x-2 mb-4">
-              <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-lg">🌿</span>
-              </div>
-              <div className="font-display text-lg font-bold">Green Living Directory</div>
+            <div className="mb-4">
+              <Image
+                src="/greenliving-blog.png"
+                alt="Green Living Blog logo"
+                width={160}
+                height={40}
+                className="h-10 w-auto"
+              />
             </div>
             <p className="text-sm text-gray-300">
               Connecting you with sustainable businesses that care about our planet.
@@ -74,3 +78,4 @@ export default function Footer() {
     </footer>
   );
 }
+

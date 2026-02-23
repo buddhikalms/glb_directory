@@ -1,4 +1,5 @@
 import { prisma } from "../src/lib/prisma";
+import { hash } from "bcryptjs";
 import {
   users,
   categories,
@@ -55,6 +56,11 @@ function fitVarchar(value: string | undefined | null, max = 191) {
 }
 
 async function main() {
+  const defaultPasswordHash = await hash("ChangeMe123!", 12);
+
+  await prisma.account.deleteMany();
+  await prisma.session.deleteMany();
+  await prisma.verificationToken.deleteMany();
   await prisma.businessBadge.deleteMany();
   await prisma.review.deleteMany();
   await prisma.product.deleteMany();
@@ -143,6 +149,8 @@ async function main() {
       location: item.location || null,
       title: item.title || null,
       businessId: null,
+      emailVerified: new Date(),
+      passwordHash: defaultPasswordHash,
     })),
   });
 
@@ -261,6 +269,8 @@ async function main() {
               location: item.location || null,
               title: item.title || null,
               businessId: null,
+              emailVerified: new Date(),
+              passwordHash: defaultPasswordHash,
             },
           });
         }

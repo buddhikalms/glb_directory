@@ -148,6 +148,30 @@ export default function AdminSidebar() {
         </Link>
 
         <Link
+          href="/admin/payments"
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+            isActive("/admin/payments")
+              ? "bg-emerald-600 text-white font-semibold"
+              : "text-sage-200 hover:bg-sage-700"
+          }`}
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M17 9V7a5 5 0 00-10 0v2m-2 0h14a1 1 0 011 1v10a1 1 0 01-1 1H5a1 1 0 01-1-1V10a1 1 0 011-1zm5 5h.01M12 16h.01"
+            />
+          </svg>
+          Payments
+        </Link>
+
+        <Link
           href="/admin/content"
           className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
             isActive("/admin/content")

@@ -1,45 +1,81 @@
-'use client';
+"use client";
 
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { User, users } from '@/data/mockData';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  ReactNode,
+  useState,
+} from "react";
+import { UserRole } from "@prisma/client";
+import { signIn, signOut, useSession } from "next-auth/react";
+
+interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  businessId?: string;
+}
 
 interface AuthContextType {
-  user: User | null;
-  login: (email: string, password: string) => boolean;
-  logout: () => void;
+  user: AuthUser | null;
+  login: (identifier: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
   isAdmin: boolean;
   isBusinessOwner: boolean;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const { data: session, status } = useSession();
+  const loading = status === "loading";
+  const [ready, setReady] = useState(false);
+  const user = useMemo<AuthUser | null>(() => {
+    if (!session?.user?.id || !session.user.email) {
+      return null;
+    }
+    return {
+      id: session.user.id,
+      email: session.user.email,
+      name: session.user.name || "",
+      role: session.user.role,
+      businessId: session.user.businessId || undefined,
+    };
+  }, [session?.user]);
 
-  // Load user from localStorage on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    if (status === "loading") {
+      setReady(false);
+      return;
     }
-  }, []);
 
-  const login = (email: string, password: string): boolean => {
-    // Mock authentication - in production, this would call an API
-    const foundUser = users.find(u => u.email === email);
-    
-    if (foundUser) {
-      setUser(foundUser);
-      localStorage.setItem('currentUser', JSON.stringify(foundUser));
-      return true;
+    if (user) {
+      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("isAuthenticated", "true");
+    } else {
+      localStorage.removeItem("user");
+      localStorage.setItem("isAuthenticated", "false");
     }
-    return false;
+
+    setReady(true);
+  }, [status, user]);
+
+  const login = async (identifier: string, password: string) => {
+    const result = await signIn("credentials", {
+      identifier,
+      password,
+      redirect: false,
+    });
+    return !result?.error;
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('currentUser');
+  const logout = async () => {
+    await signOut({ redirect: true, callbackUrl: "/" });
   };
 
   const value = {
@@ -47,9 +83,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     logout,
     isAuthenticated: !!user,
-    isAdmin: user?.role === 'admin',
-    isBusinessOwner: user?.role === 'business_owner',
+    isAdmin: user?.role === "admin",
+    isBusinessOwner: user?.role === "business_owner",
+    loading,
   };
+
+  if (loading || !ready) {
+    return null;
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
@@ -57,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }
