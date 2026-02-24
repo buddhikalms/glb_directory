@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { Prisma, UserRole } from "@prisma/client";
 import { z } from "zod";
 import { auth } from "@/auth";
+import {
+  sendListingUnderReviewEmail,
+} from "@/lib/auth-email";
 import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe";
 
@@ -132,11 +135,10 @@ export async function POST(request: Request) {
       postcode: parsed.data.postcode || legacyLocation.postcode,
     };
     const selectedPackageId = parsed.data.selectedPackage || "";
-
     if (selectedPackageId) {
       const pricingPackage = await prisma.pricingPackage.findUnique({
         where: { id: selectedPackageId },
-        select: { id: true, active: true, price: true },
+        select: { id: true, name: true, active: true, price: true },
       });
 
       if (!pricingPackage || !pricingPackage.active) {
@@ -183,6 +185,7 @@ export async function POST(request: Request) {
             { status: 402 },
           );
         }
+
       }
     }
 
@@ -323,6 +326,16 @@ export async function POST(request: Request) {
         { error: "Could not reserve a unique slug. Please try again." },
         { status: 409 },
       );
+    }
+
+    try {
+      await sendListingUnderReviewEmail({
+        to: parsed.data.email,
+        name: session.user.name || undefined,
+        businessName: parsed.data.businessName,
+      });
+    } catch (error) {
+      console.error("listing_under_review_email_error", error);
     }
 
     return NextResponse.json(

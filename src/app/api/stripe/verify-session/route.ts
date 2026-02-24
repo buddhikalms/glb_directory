@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
+import { sendPaymentReceivedEmail } from "@/lib/auth-email";
+import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe";
 
 const bodySchema = z.object({
@@ -49,6 +51,34 @@ export async function POST(request: Request) {
         { ok: false, error: "Payment verification failed." },
         { status: 400 },
       );
+    }
+
+    try {
+      const pricingPackage = await prisma.pricingPackage.findUnique({
+        where: { id: parsed.data.selectedPackage },
+        select: { name: true },
+      });
+      const amountTotal = checkoutSession.amount_total ?? 0;
+      const currency = (checkoutSession.currency || "gbp").toUpperCase();
+      const amountFormatted = `${currency} ${(amountTotal / 100).toFixed(2)}`;
+
+      const to =
+        session.user.email ||
+        checkoutSession.customer_details?.email ||
+        checkoutSession.customer_email ||
+        null;
+
+      if (to) {
+        await sendPaymentReceivedEmail({
+          to,
+          name: session.user.name || undefined,
+          packageName: pricingPackage?.name || "Selected package",
+          amountFormatted,
+          paymentMode: parsed.data.paymentMode,
+        });
+      }
+    } catch (emailError) {
+      console.error("payment_received_email_error", emailError);
     }
 
     return NextResponse.json({ ok: true });

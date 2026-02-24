@@ -4,7 +4,11 @@ import { UserRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { sendVerificationEmail } from "@/lib/auth-email";
+import {
+  sendRegistrationAlertEmail,
+  sendRegistrationWelcomeEmail,
+  sendVerificationEmail,
+} from "@/lib/auth-email";
 
 const registerSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -113,6 +117,26 @@ export async function POST(request: Request) {
       name,
       verificationUrl,
     });
+
+    try {
+      await sendRegistrationAlertEmail({
+        name,
+        email: parsed.data.email,
+        role,
+        provider: "credentials",
+      });
+    } catch (error) {
+      console.error("registration_alert_email_error", error);
+    }
+
+    try {
+      await sendRegistrationWelcomeEmail({
+        to: parsed.data.email,
+        name,
+      });
+    } catch (error) {
+      console.error("registration_welcome_email_error", error);
+    }
 
     return NextResponse.json({
       ok: true,

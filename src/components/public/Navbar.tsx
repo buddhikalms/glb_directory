@@ -10,6 +10,8 @@ export default function Navbar() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const { user, isAuthenticated, logout } = useAuth();
+  const userInitial =
+    (user?.name || user?.email || "A").trim().charAt(0).toUpperCase();
 
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
@@ -66,9 +68,22 @@ export default function Navbar() {
                 <div className="relative" ref={userMenuRef}>
                   <button
                     onClick={() => setShowUserMenu((prev) => !prev)}
-                    className="text-gray-700 hover:text-emerald-600 transition-colors font-medium"
+                    className="flex items-center gap-2 rounded-full border border-emerald-100 bg-white p-1 pr-3 text-gray-700 hover:border-emerald-300 hover:text-emerald-700 transition-colors"
                   >
-                    {user?.name || 'Account'}
+                    {user?.image ? (
+                      <Image
+                        src={user.image}
+                        alt={user?.name || "Profile"}
+                        width={32}
+                        height={32}
+                        className="h-8 w-8 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">
+                        {userInitial}
+                      </span>
+                    )}
+                    <span className="text-sm font-semibold">{user?.name || 'Account'}</span>
                   </button>
                   {showUserMenu && (
                     <div className="absolute right-0 mt-2 w-72 rounded-xl border border-gray-200 bg-white shadow-xl p-4">
@@ -78,7 +93,23 @@ export default function Navbar() {
                       <p className="mt-2 inline-block rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
                         {user?.role?.replace('_', ' ')}
                       </p>
-                      <div className="mt-3 border-t border-gray-100 pt-3">
+                      <div className="mt-3 border-t border-gray-100 pt-3 space-y-2">
+                        {user?.role === "business_owner" && (
+                          <Link
+                            href="/dashboard"
+                            onClick={() => setShowUserMenu(false)}
+                            className="block w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 text-left"
+                          >
+                            Dashboard
+                          </Link>
+                        )}
+                        <Link
+                          href="/submit"
+                          onClick={() => setShowUserMenu(false)}
+                          className="block w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 text-left"
+                        >
+                          Add Listing
+                        </Link>
                         <button
                           onClick={() => logout()}
                           className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 text-left"
@@ -174,6 +205,13 @@ export default function Navbar() {
                     Dashboard
                   </Link>
                 )}
+                <Link
+                  href="/submit"
+                  className="block py-2 text-gray-700 hover:text-emerald-600 transition-colors font-medium"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Add Listing
+                </Link>
                 <button
                   onClick={() => {
                     logout();

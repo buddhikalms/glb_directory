@@ -102,6 +102,8 @@ export default function BusinessesClient({
   const [sortBy, setSortBy] = useState<
     "newest" | "oldest" | "name" | "expiry"
   >("newest");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [providerSettings, setProviderSettings] =
     useState<LocationProviderSettings>({
       provider: "geoapify",
@@ -210,6 +212,17 @@ export default function BusinessesClient({
     searchQuery,
     sortBy,
   ]);
+  const totalFilteredBusinesses = filteredBusinesses.length;
+  const totalPages = Math.max(
+    1,
+    Math.ceil(totalFilteredBusinesses / rowsPerPage),
+  );
+  const pageStartIndex = (currentPage - 1) * rowsPerPage;
+  const pageEndIndex = pageStartIndex + rowsPerPage;
+  const paginatedBusinesses = filteredBusinesses.slice(
+    pageStartIndex,
+    pageEndIndex,
+  );
   const isUploading = uploading.logo || uploading.coverImage || uploading.gallery;
 
   const canSubmit = useMemo(() => {
@@ -229,6 +242,16 @@ export default function BusinessesClient({
     () => packages.find((item) => item.id === formData.pricingPackageId),
     [formData.pricingPackageId, packages],
   );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filter, categoryFilter, packageFilter, sortBy]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   useEffect(() => {
     if (
@@ -733,10 +756,14 @@ export default function BusinessesClient({
     }));
   };
 
-  const handleStatusChange = async (id: string, status: BusinessStatus) => {
+  const handleStatusChange = async (
+    id: string,
+    status: BusinessStatus,
+    rejectReason?: string,
+  ) => {
     try {
       setError(null);
-      const updated = await updateBusinessStatusAction(id, status);
+      const updated = await updateBusinessStatusAction(id, status, rejectReason);
 
       setAllBusinesses((prev) =>
         prev.map((item) => (item.id === id ? updated : item)),
@@ -1732,15 +1759,16 @@ export default function BusinessesClient({
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredBusinesses.map((business, idx) => {
+                    {paginatedBusinesses.map((business, idx) => {
                       const packageExpiryDate = calculatePackageExpiryDate(
                         business.createdAt,
                         business.pricingPackage?.billingPeriod,
                       );
+                      const rowIndex = pageStartIndex + idx;
                       return (
                       <tr
                         key={business.id}
-                        className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                        className={rowIndex % 2 === 0 ? "bg-white" : "bg-gray-50"}
                       >
                         <td className="px-6 py-4">
                           <p className="font-semibold text-gray-900">
@@ -1802,21 +1830,35 @@ export default function BusinessesClient({
                             >
                               Edit
                             </button>
-                            <label className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                              <input
-                                type="checkbox"
-                                checked={business.status === "approved"}
-                                onChange={(e) =>
-                                  handleStatusChange(
-                                    business.id,
-                                    e.target.checked ? "approved" : "pending",
-                                  )
-                                }
-                              />
-                              {business.status === "approved"
-                                ? "Published"
-                                : "Unpublished"}
-                            </label>
+                            <button
+                              onClick={() => handleStatusChange(business.id, "approved")}
+                              className="rounded-lg bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-200"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => {
+                                const reason = window.prompt(
+                                  "Enter reason for rejection:",
+                                  "Please update listing details and resubmit.",
+                                );
+                                if (reason === null) return;
+                                void handleStatusChange(
+                                  business.id,
+                                  "rejected",
+                                  reason.trim() || undefined,
+                                );
+                              }}
+                              className="rounded-lg bg-red-100 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-200"
+                            >
+                              Reject
+                            </button>
+                            <button
+                              onClick={() => handleStatusChange(business.id, "pending")}
+                              className="rounded-lg bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-200"
+                            >
+                              Pending
+                            </button>
                             <button
                               onClick={() => handleDelete(business.id)}
                               className="rounded-lg bg-gray-100 px-3 py-1 text-sm font-semibold text-gray-700 hover:bg-gray-200"
@@ -1830,6 +1872,51 @@ export default function BusinessesClient({
                     })}
                   </tbody>
                 </table>
+              </div>
+              <div className="flex flex-col gap-3 border-t border-gray-100 px-6 py-4 md:flex-row md:items-center md:justify-between">
+                <p className="text-sm text-gray-600">
+                  Showing {pageStartIndex + 1}-{Math.min(pageEndIndex, totalFilteredBusinesses)} of{" "}
+                  {totalFilteredBusinesses}
+                </p>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-600" htmlFor="businesses-rows-per-page">
+                    Rows:
+                  </label>
+                  <select
+                    id="businesses-rows-per-page"
+                    value={rowsPerPage}
+                    onChange={(e) => {
+                      setRowsPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-emerald-500 focus:outline-none"
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="rounded-md border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <span className="px-2 text-sm text-gray-600">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                    }
+                    disabled={currentPage >= totalPages}
+                    className="rounded-md border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             </div>
           ) : (

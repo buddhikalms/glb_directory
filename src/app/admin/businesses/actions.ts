@@ -2,6 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { BusinessStatus as PrismaBusinessStatus, Prisma } from "@prisma/client";
+import {
+  sendListingApprovedEmail,
+  sendListingRejectedEmail,
+} from "@/lib/auth-email";
 import { prisma } from "@/lib/prisma";
 import type { BusinessFormData, BusinessRow, BusinessStatus } from "./types";
 
@@ -56,6 +60,17 @@ function toStringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
+}
+
+function getBusinessContactEmail(item: {
+  contact: unknown;
+  owner?: unknown;
+}) {
+  const contact = toRecord(item.contact);
+  const contactEmail = asString(contact.email);
+  const owner = toRecord(item.owner);
+  const ownerEmail = asString(owner.email);
+  return contactEmail || ownerEmail || "";
 }
 
 function mapBusinessRow(item: BusinessWithRelations): BusinessRow {
@@ -320,6 +335,16 @@ export async function createBusinessAction(input: BusinessFormData) {
 export async function updateBusinessAction(id: string, input: BusinessFormData) {
   assertRequired(input);
 
+  const previous = await prisma.business.findUnique({
+    where: { id },
+    select: {
+      status: true,
+      name: true,
+      contact: true,
+      owner: { select: { name: true, email: true } },
+    },
+  });
+
   await prisma.$transaction(async (tx) => {
     const gallery = await clampGalleryToPackageLimit(tx, input);
     const products = normalizeProducts(input);
@@ -432,6 +457,34 @@ export async function updateBusinessAction(id: string, input: BusinessFormData) 
     },
   });
 
+  if (previous && previous.status !== updated.status) {
+    const to = getBusinessContactEmail(updated);
+    if (to && updated.status === "approved") {
+      try {
+        await sendListingApprovedEmail({
+          to,
+          name: updated.owner?.name || undefined,
+          businessName: updated.name,
+        });
+      } catch (error) {
+        console.error("listing_approved_email_error", error);
+      }
+    }
+
+    if (to && updated.status === "rejected") {
+      try {
+        await sendListingRejectedEmail({
+          to,
+          name: updated.owner?.name || undefined,
+          businessName: updated.name,
+          reason: "Your listing did not meet the review requirements.",
+        });
+      } catch (error) {
+        console.error("listing_rejected_email_error", error);
+      }
+    }
+  }
+
   revalidatePath("/admin/businesses");
   return mapBusinessRow(updated);
 }
@@ -449,7 +502,18 @@ export async function deleteBusinessAction(id: string) {
 export async function updateBusinessStatusAction(
   id: string,
   status: BusinessStatus,
+  rejectReason?: string,
 ) {
+  const previous = await prisma.business.findUnique({
+    where: { id },
+    select: {
+      status: true,
+      name: true,
+      contact: true,
+      owner: { select: { name: true, email: true } },
+    },
+  });
+
   const updated = await prisma.business.update({
     where: { id },
     data: { status: status as PrismaBusinessStatus },
@@ -475,6 +539,34 @@ export async function updateBusinessStatusAction(
       services: true,
     },
   });
+
+  if (previous && previous.status !== updated.status) {
+    const to = getBusinessContactEmail(updated);
+    if (to && updated.status === "approved") {
+      try {
+        await sendListingApprovedEmail({
+          to,
+          name: updated.owner?.name || undefined,
+          businessName: updated.name,
+        });
+      } catch (error) {
+        console.error("listing_approved_email_error", error);
+      }
+    }
+
+    if (to && updated.status === "rejected") {
+      try {
+        await sendListingRejectedEmail({
+          to,
+          name: updated.owner?.name || undefined,
+          businessName: updated.name,
+          reason: rejectReason || undefined,
+        });
+      } catch (error) {
+        console.error("listing_rejected_email_error", error);
+      }
+    }
+  }
 
   revalidatePath("/admin/businesses");
   return mapBusinessRow(updated);

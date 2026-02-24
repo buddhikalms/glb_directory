@@ -5,6 +5,10 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { z } from "zod";
+import {
+  sendRegistrationAlertEmail,
+  sendRegistrationWelcomeEmail,
+} from "@/lib/auth-email";
 import { prisma } from "@/lib/prisma";
 
 const credentialsSchema = z.object({
@@ -105,6 +109,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.businessId = user.businessId ?? null;
       }
       return session;
+    },
+  },
+  events: {
+    async createUser({ user }) {
+      if (!user.email) return;
+
+      try {
+        await sendRegistrationAlertEmail({
+          name: user.name,
+          email: user.email,
+          role: (user as { role?: UserRole | null }).role ?? UserRole.guest,
+          provider: "google",
+        });
+      } catch (error) {
+        console.error("google_registration_alert_email_error", error);
+      }
+
+      try {
+        await sendRegistrationWelcomeEmail({
+          to: user.email,
+          name: user.name,
+        });
+      } catch (error) {
+        console.error("google_registration_welcome_email_error", error);
+      }
     },
   },
 });

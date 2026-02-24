@@ -1,5 +1,6 @@
 datasource db {
   provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -29,6 +30,12 @@ enum BusinessStatus {
 enum PostStatus {
   draft
   published
+}
+
+enum EmailLogStatus {
+  sent
+  failed
+  skipped
 }
 
 model User {
@@ -271,4 +278,15 @@ model NewsPost {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model EmailLog {
+  id        String         @id @default(cuid())
+  to        String
+  subject   String
+  template  String
+  status    EmailLogStatus
+  error     String?        @db.Text
+  messageId String?
+  createdAt DateTime       @default(now())
 }
