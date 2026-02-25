@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
+import BusinessInteractions from "@/components/public/BusinessInteractions";
 import {
   MenuItemCard,
   ProductCard,
@@ -10,6 +11,7 @@ import {
 } from "@/components/ui/Components";
 import JsonLd from "@/components/seo/JsonLd";
 import { prisma } from "@/lib/prisma";
+import { getBusinessClicks } from "@/lib/business-metrics";
 import { absoluteUrl, breadcrumbSchema, createMetadata } from "@/lib/seo";
 
 function toRecord(value: unknown): Record<string, unknown> {
@@ -253,7 +255,7 @@ export default async function BusinessPage({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-gray-700">
+            <div className="hidden grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-gray-700">
               {asString(contact.phone) && (
                 <div>📞 {asString(contact.phone)}</div>
               )}
@@ -283,6 +285,20 @@ export default async function BusinessPage({
                   👤 Meet the owner
                 </Link>
               )}
+            </div>
+            <div className="mt-4">
+              <BusinessInteractions
+                businessId={business.id}
+                phone={asString(contact.phone)}
+                email={asString(contact.email)}
+                website={asString(contact.website)}
+                ownerSlug={asString(business.owner.slug)}
+                initialMetrics={{
+                  views: business.views,
+                  clicks: getBusinessClicks(business.contact),
+                  likes: business.likes,
+                }}
+              />
             </div>
           </div>
         </div>

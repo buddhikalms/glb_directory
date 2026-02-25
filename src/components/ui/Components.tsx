@@ -9,7 +9,6 @@ import {
   MenuItem,
   Service,
   Badge,
-  getBadgeById,
   getCategoryById,
   getAverageRatingByBusinessId,
   getReviewCountByBusinessId,
@@ -51,17 +50,12 @@ export function BusinessCard({
     averageRatingOverride ?? getAverageRatingByBusinessId(business.id);
   const reviewCount =
     reviewCountOverride ?? getReviewCountByBusinessId(business.id);
-  const badges = badgesOverride
-    ? badgesOverride
-    : business.badges
-        .map((badgeId) => getBadgeById(badgeId))
-        .filter((badge): badge is Badge => Boolean(badge));
   const gallery = Array.isArray(business.gallery) ? business.gallery : [];
   const primaryImage = business.coverImage || gallery[0] || "";
 
   return (
-    <Link href={`/business/${business.slug}`}>
-      <div className="group bg-white rounded-2xl overflow-hidden shadow-md card-hover">
+    <Link href={`/business/${business.slug}`} className="block h-full">
+      <div className="group h-full bg-white rounded-2xl overflow-hidden shadow-md card-hover flex flex-col">
         <div className="relative h-48 overflow-hidden">
           {primaryImage ? (
             <Image
@@ -81,13 +75,15 @@ export function BusinessCard({
           )}
         </div>
 
-        <div className="p-5">
+        <div className="p-5 flex flex-1 flex-col">
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1">
               <h3 className="font-display text-xl font-bold text-gray-900 group-hover:text-emerald-600 transition-colors mb-1">
                 {business.name}
               </h3>
-              <p className="text-sm text-gray-600">{business.tagline}</p>
+              <p className="text-sm text-gray-600 h-10 overflow-hidden">
+                {business.tagline}
+              </p>
             </div>
             {business.logo && (
               <Image
@@ -131,38 +127,7 @@ export function BusinessCard({
             )}
           </div>
 
-          {business.pricingPackageName && (
-            <div className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
-              Plan: <span className="font-semibold">{business.pricingPackageName}</span>
-              {business.packageExpiresAt && (
-                <span className="text-emerald-700">
-                  {" "}
-                  • Expires {business.packageExpiresAt}
-                </span>
-              )}
-            </div>
-          )}
-
-          {gallery.length > 0 && (
-            <div className="mb-3 flex gap-2 overflow-hidden">
-              {gallery.slice(0, 3).map((image, index) => (
-                <div
-                  key={`${image}-${index}`}
-                  className="relative h-12 flex-1 overflow-hidden rounded-md border"
-                >
-                  <Image
-                    src={image}
-                    alt={`${business.name} gallery ${index + 1}`}
-                    fill
-                    sizes="120px"
-                    className="object-cover"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
+          <div className="mt-auto flex items-center justify-between text-sm text-gray-600">
             <div className="flex items-center gap-2">
               <span className="text-emerald-600">★</span>
               <span>
@@ -176,12 +141,6 @@ export function BusinessCard({
               <span>❤️</span>
               <span>{business.likes}</span>
             </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {badges.slice(0, 3).map((badge) => (
-              <BadgeTag key={badge.id} badge={badge} />
-            ))}
           </div>
         </div>
       </div>
@@ -320,14 +279,19 @@ export function CategoryCard({ category }: { category: Category }) {
 // Search Bar Component
 export function SearchBar({
   onSearch,
+  value,
+  placeholder = "Search sustainable businesses...",
 }: {
   onSearch?: (query: string) => void;
+  value?: string;
+  placeholder?: string;
 }) {
   return (
     <div className="relative">
       <input
         type="text"
-        placeholder="Search sustainable businesses..."
+        placeholder={placeholder}
+        value={value}
         onChange={(e) => onSearch?.(e.target.value)}
         className="w-full px-6 py-4 pr-12 rounded-full border-2 border-gray-200 focus:border-emerald-500 focus:outline-none text-gray-700 shadow-sm"
       />
@@ -503,3 +467,5 @@ export function FormSelect({
     </div>
   );
 }
+
+

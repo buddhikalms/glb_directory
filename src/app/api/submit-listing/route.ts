@@ -5,6 +5,10 @@ import { auth } from "@/auth";
 import {
   sendListingUnderReviewEmail,
 } from "@/lib/auth-email";
+import {
+  normalizePackageFeatures,
+  type PackageFeatureKey,
+} from "@/lib/package-features";
 import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe";
 
@@ -13,6 +17,7 @@ const productSchema = z.object({
   description: z.string().trim().min(1),
   price: z.number().finite().nonnegative(),
   image: z.string().trim().optional().default(""),
+  purchaseLink: z.string().trim().optional().default(""),
   inStock: z.boolean().optional().default(true),
 });
 
@@ -135,10 +140,19 @@ export async function POST(request: Request) {
       postcode: parsed.data.postcode || legacyLocation.postcode,
     };
     const selectedPackageId = parsed.data.selectedPackage || "";
+    let packageFeatureSet = new Set<PackageFeatureKey>();
+    let packageGalleryLimit = 0;
     if (selectedPackageId) {
       const pricingPackage = await prisma.pricingPackage.findUnique({
         where: { id: selectedPackageId },
-        select: { id: true, name: true, active: true, price: true },
+        select: {
+          id: true,
+          name: true,
+          active: true,
+          price: true,
+          features: true,
+          galleryLimit: true,
+        },
       });
 
       if (!pricingPackage || !pricingPackage.active) {
@@ -187,7 +201,14 @@ export async function POST(request: Request) {
         }
 
       }
+
+      packageFeatureSet = new Set<PackageFeatureKey>(
+        normalizePackageFeatures(pricingPackage.features),
+      );
+      packageGalleryLimit = Math.max(pricingPackage.galleryLimit, 0);
     }
+    const canUseFeature = (feature: PackageFeatureKey) =>
+      packageFeatureSet.has(feature);
 
     const createListing = async (slugToUse: string) =>
       prisma.$transaction(async (tx) => {
@@ -200,9 +221,11 @@ export async function POST(request: Request) {
           seoKeywords: parsed.data.seoKeywords || null,
           categoryId: parsed.data.categoryId,
           pricingPackageId: selectedPackageId || null,
-          logo: parsed.data.logo,
-          coverImage: parsed.data.coverImage,
-          gallery: parsed.data.gallery,
+          logo: canUseFeature("branding") ? parsed.data.logo : "",
+          coverImage: canUseFeature("branding") ? parsed.data.coverImage : "",
+          gallery: canUseFeature("gallery")
+            ? parsed.data.gallery.slice(0, packageGalleryLimit)
+            : [],
           likes: 0,
           location,
           contact: {
@@ -219,7 +242,7 @@ export async function POST(request: Request) {
         },
       });
 
-      if (parsed.data.badgeIds.length > 0) {
+      if (canUseFeature("badges") && parsed.data.badgeIds.length > 0) {
         await tx.businessBadge.createMany({
           data: parsed.data.badgeIds.map((badgeId) => ({
             businessId: business.id,
@@ -228,20 +251,23 @@ export async function POST(request: Request) {
         });
       }
 
-      if (parsed.data.products.length > 0) {
+      if (canUseFeature("products") && parsed.data.products.length > 0) {
         await tx.product.createMany({
           data: parsed.data.products.map((item) => ({
             businessId: business.id,
             name: item.name,
-            description: item.description,
             price: item.price,
             image: item.image,
+            // Persist purchase URL in description until product schema has a dedicated field.
+            description: item.purchaseLink
+              ? `${item.description}\nPurchase link: ${item.purchaseLink}`
+              : item.description,
             inStock: item.inStock,
           })),
         });
       }
 
-      if (parsed.data.menuItems.length > 0) {
+      if (canUseFeature("menu_items") && parsed.data.menuItems.length > 0) {
         await tx.menuItem.createMany({
           data: parsed.data.menuItems.map((item) => ({
             businessId: business.id,
@@ -254,7 +280,7 @@ export async function POST(request: Request) {
         });
       }
 
-      if (parsed.data.services.length > 0) {
+      if (canUseFeature("services") && parsed.data.services.length > 0) {
         await tx.service.createMany({
           data: parsed.data.services.map((item) => ({
             businessId: business.id,

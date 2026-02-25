@@ -123,6 +123,7 @@ async function main() {
       name: item.name,
       price: item.price,
       billingPeriod: item.billingPeriod as "monthly" | "yearly",
+      durationDays: item.durationDays,
       description: item.description,
       features: item.features,
       galleryLimit: item.galleryLimit,

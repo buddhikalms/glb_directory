@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
-import { BusinessCard, CategoryCard, SearchBar } from "@/components/ui/Components";
+import { BusinessCard, CategoryCard } from "@/components/ui/Components";
 import JsonLd from "@/components/seo/JsonLd";
 import { prisma } from "@/lib/prisma";
 import { absoluteUrl, collectionPageSchema, createMetadata } from "@/lib/seo";
+import HomeSearchPanel from "@/components/home/HomeSearchPanel";
 
 export const metadata: Metadata = createMetadata({
   title: "Home",
@@ -32,6 +33,7 @@ export default async function Home() {
       include: {
         category: { select: { id: true, name: true, icon: true } },
         badges: { include: { badge: true } },
+        reviews: { select: { rating: true } },
       },
       orderBy: { createdAt: "desc" },
       take: 6,
@@ -51,6 +53,12 @@ export default async function Home() {
 
   const featuredBusinesses = featuredBusinessesRaw.map((item) => {
     const location = toRecord(item.location);
+    const reviewCount = item.reviews.length;
+    const averageRating =
+      reviewCount > 0
+        ? item.reviews.reduce((sum, review) => sum + review.rating, 0) /
+          reviewCount
+        : 0;
     return {
       id: item.id,
       slug: item.slug,
@@ -69,6 +77,8 @@ export default async function Home() {
       badges: item.badges.map((b) => b.badgeId),
       category: item.category,
       badgeItems: item.badges.map((b) => b.badge),
+      averageRating,
+      reviewCount,
     };
   });
 
@@ -100,7 +110,7 @@ export default async function Home() {
               Support local eco-conscious businesses making a positive impact on our planet
             </p>
             <div className="max-w-2xl mx-auto mb-8 animate-slide-up">
-              <SearchBar />
+              <HomeSearchPanel categories={categories} />
             </div>
             <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up">
               <Link href="/directory" className="btn-primary">
@@ -131,8 +141,8 @@ export default async function Home() {
                   business={business as any}
                   category={business.category}
                   badges={business.badgeItems}
-                  averageRating={0}
-                  reviewCount={0}
+                  averageRating={business.averageRating}
+                  reviewCount={business.reviewCount}
                 />
               ))}
             </div>

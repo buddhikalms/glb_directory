@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
 import { BusinessCard, SearchBar } from "@/components/ui/Components";
@@ -35,6 +36,8 @@ interface DirectoryBusiness {
   packageExpiresAt: string;
   category: DirectoryCategory;
   badges: DirectoryBadge[];
+  averageRating: number;
+  reviewCount: number;
 }
 
 interface DirectoryClientProps {
@@ -48,19 +51,42 @@ export default function DirectoryClient({
   categories,
   badges,
 }: DirectoryClientProps) {
+  const searchParams = useSearchParams();
   const [view, setView] = useState<"grid" | "list">("grid");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [badgeFilter, setBadgeFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
+
+  useEffect(() => {
+    const initialQuery = (searchParams.get("q") || "").trim();
+    const initialCategory = (searchParams.get("category") || "all").trim();
+    const initialLocation = (searchParams.get("location") || "").trim();
+
+    setSearchQuery(initialQuery);
+    setLocationFilter(initialLocation);
+    setCategoryFilter(
+      categories.some((category) => category.id === initialCategory)
+        ? initialCategory
+        : "all",
+    );
+  }, [categories, searchParams]);
 
   const filteredBusinesses = businesses
     .filter((b) => categoryFilter === "all" || b.categoryId === categoryFilter)
     .filter((b) => badgeFilter === "all" || b.badgeIds.includes(badgeFilter))
     .filter(
       (b) =>
+        locationFilter === "" ||
+        b.city.toLowerCase().includes(locationFilter.toLowerCase()),
+    )
+    .filter(
+      (b) =>
         searchQuery === "" ||
         b.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.tagline.toLowerCase().includes(searchQuery.toLowerCase()),
+        b.tagline.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        b.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        b.category.name.toLowerCase().includes(searchQuery.toLowerCase()),
     );
 
   return (
@@ -76,7 +102,11 @@ export default function DirectoryClient({
               Discover {businesses.length} verified eco-conscious businesses
             </p>
             <div className="max-w-2xl">
-              <SearchBar onSearch={setSearchQuery} />
+              <SearchBar
+                onSearch={setSearchQuery}
+                value={searchQuery}
+                placeholder="Search by business, category, or keyword"
+              />
             </div>
           </div>
         </section>
@@ -135,6 +165,19 @@ export default function DirectoryClient({
 
                 <div className="mb-6">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    value={locationFilter}
+                    onChange={(e) => setLocationFilter(e.target.value)}
+                    placeholder="City or area"
+                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Certifications
                   </label>
                   <select
@@ -153,11 +196,13 @@ export default function DirectoryClient({
 
                 {(categoryFilter !== "all" ||
                   badgeFilter !== "all" ||
+                  locationFilter !== "" ||
                   searchQuery) && (
                   <button
                     onClick={() => {
                       setCategoryFilter("all");
                       setBadgeFilter("all");
+                      setLocationFilter("");
                       setSearchQuery("");
                     }}
                     className="w-full py-2 px-4 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all"
@@ -219,8 +264,8 @@ export default function DirectoryClient({
                       } as any}
                       category={business.category}
                       badges={business.badges}
-                      averageRating={0}
-                      reviewCount={0}
+                      averageRating={business.averageRating}
+                      reviewCount={business.reviewCount}
                     />
                   ))}
                 </div>

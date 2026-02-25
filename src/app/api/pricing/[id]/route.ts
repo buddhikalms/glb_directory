@@ -6,6 +6,7 @@ const updatePricingSchema = z.object({
   name: z.string().optional(),
   price: z.number().optional(),
   billingPeriod: z.enum(["monthly", "yearly"]).optional(),
+  durationDays: z.number().int().min(1).max(365).optional(),
   description: z.string().optional(),
   features: z.array(z.string()).optional(),
   galleryLimit: z.number().int().min(0).optional(),

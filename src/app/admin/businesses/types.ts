@@ -1,3 +1,5 @@
+import type { PackageFeatureKey } from "@/lib/package-features";
+
 export type BusinessStatus = "approved" | "pending" | "rejected";
 
 export interface UserOption {
@@ -15,8 +17,10 @@ export interface PricingPackageOption {
   id: string;
   name: string;
   billingPeriod: "monthly" | "yearly";
+  durationDays: number;
   galleryLimit: number;
   active: boolean;
+  features: PackageFeatureKey[];
 }
 
 export interface BadgeOption {
@@ -63,6 +67,7 @@ export interface BusinessRow {
     id: string;
     name: string;
     billingPeriod: "monthly" | "yearly";
+    durationDays: number;
   };
   status: BusinessStatus;
   featured: boolean;

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { normalizePackageFeatures } from "@/lib/package-features";
 import BusinessesClient from "../BusinessesClient";
 import type {
   BadgeOption,
@@ -29,8 +30,10 @@ export default async function NewBusinessPage() {
         id: true,
         name: true,
         billingPeriod: true,
+        durationDays: true,
         galleryLimit: true,
         active: true,
+        features: true,
       },
       orderBy: { name: "asc" },
     }),
@@ -57,8 +60,10 @@ export default async function NewBusinessPage() {
     id: item.id,
     name: item.name,
     billingPeriod: item.billingPeriod,
+    durationDays: item.durationDays,
     galleryLimit: item.galleryLimit,
     active: item.active,
+    features: normalizePackageFeatures(item.features),
   }));
 
   return (

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import JsonLd from "@/components/seo/JsonLd";
 import { prisma } from "@/lib/prisma";
+import { addBillingDuration, type PricingBillingPeriod } from "@/lib/pricing-duration";
 import { absoluteUrl, collectionPageSchema, createMetadata } from "@/lib/seo";
 import DirectoryClient from "./DirectoryClient";
 
@@ -30,15 +31,11 @@ function toStringArray(value: unknown): string[] {
 
 function calculatePackageExpiryDate(
   createdAt: Date,
-  billingPeriod?: "monthly" | "yearly",
+  billingPeriod?: PricingBillingPeriod,
+  durationDays?: number,
 ) {
   if (!billingPeriod) return "";
-  const expiresAt = new Date(createdAt);
-  if (billingPeriod === "monthly") {
-    expiresAt.setMonth(expiresAt.getMonth() + 1);
-  } else {
-    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-  }
+  const expiresAt = addBillingDuration(createdAt, billingPeriod, durationDays);
 
   return new Intl.DateTimeFormat("en-US", {
     year: "numeric",
@@ -54,9 +51,15 @@ export default async function DirectoryPage() {
       include: {
         category: { select: { id: true, name: true, icon: true } },
         pricingPackage: {
-          select: { name: true, billingPeriod: true, galleryLimit: true },
+          select: {
+            name: true,
+            billingPeriod: true,
+            durationDays: true,
+            galleryLimit: true,
+          },
         },
         badges: { include: { badge: true } },
+        reviews: { select: { rating: true } },
       },
       orderBy: { createdAt: "desc" },
     }),
@@ -78,6 +81,12 @@ export default async function DirectoryPage() {
       typeof galleryLimit === "number"
         ? gallery.slice(0, Math.max(galleryLimit, 0))
         : gallery;
+    const reviewCount = item.reviews.length;
+    const averageRating =
+      reviewCount > 0
+        ? item.reviews.reduce((sum, review) => sum + review.rating, 0) /
+          reviewCount
+        : 0;
 
     return {
       id: item.id,
@@ -94,10 +103,13 @@ export default async function DirectoryPage() {
       badgeIds: item.badges.map((b) => b.badgeId),
       category: item.category,
       badges: item.badges.map((b) => b.badge),
+      averageRating,
+      reviewCount,
       pricingPackageName: item.pricingPackage?.name || "",
       packageExpiresAt: calculatePackageExpiryDate(
         item.createdAt,
         item.pricingPackage?.billingPeriod,
+        item.pricingPackage?.durationDays,
       ),
     };
   });

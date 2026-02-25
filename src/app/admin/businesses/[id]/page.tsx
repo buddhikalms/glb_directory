@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { normalizePackageFeatures } from "@/lib/package-features";
 import BusinessesClient from "../BusinessesClient";
 import type {
   BadgeOption,
@@ -41,7 +42,7 @@ export default async function EditBusinessPage({
           owner: { select: { name: true } },
           category: { select: { name: true } },
           pricingPackage: {
-            select: { id: true, name: true, billingPeriod: true },
+            select: { id: true, name: true, billingPeriod: true, durationDays: true },
           },
           products: true,
           menuItems: true,
@@ -79,8 +80,10 @@ export default async function EditBusinessPage({
           id: true,
           name: true,
           billingPeriod: true,
+          durationDays: true,
           galleryLimit: true,
           active: true,
+          features: true,
         },
         orderBy: { name: "asc" },
       }),
@@ -111,6 +114,7 @@ export default async function EditBusinessPage({
             id: business.pricingPackage.id,
             name: business.pricingPackage.name,
             billingPeriod: business.pricingPackage.billingPeriod,
+            durationDays: business.pricingPackage.durationDays,
           }
         : undefined,
       status: business.status,
@@ -183,8 +187,10 @@ export default async function EditBusinessPage({
     id: item.id,
     name: item.name,
     billingPeriod: item.billingPeriod,
+    durationDays: item.durationDays,
     galleryLimit: item.galleryLimit,
     active: item.active,
+    features: normalizePackageFeatures(item.features),
   }));
 
   return (

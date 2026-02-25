@@ -1,32 +1,59 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import Footer from "@/components/public/Footer";
 import Navbar from "@/components/public/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
-import { badges, categories, getActivePricingPackages } from "@/data/mockData";
+import { badges, categories } from "@/data/mockData";
 import {
   COUNTRY_OPTIONS,
   getCountryCode,
 } from "@/app/admin/businesses/locationOptions";
 import { slugify } from "@/app/admin/businesses/types";
+import {
+  getPackageFeatureLabel,
+  normalizePackageFeatures,
+  type PackageFeatureKey,
+} from "@/lib/package-features";
+import { getBillingDurationLabel } from "@/lib/pricing-duration";
 
 type Step = 1 | 2 | 3;
 type AccountMode = "signin" | "signup";
 type LocationProvider = "google" | "geoapify" | "openstreetmap";
 type PaymentMode = "subscription" | "one_time";
-type ProductInput = { name: string; description: string; price: number; image: string; inStock: boolean };
+type ProductInput = {
+  name: string;
+  description: string;
+  price: number;
+  image: string;
+  purchaseLink: string;
+  inStock: boolean;
+};
 type MenuItemInput = { category: string; name: string; description: string; price: number; dietary: string[] };
 type ServiceInput = { name: string; description: string; pricing: string };
+type PricingPackage = {
+  id: string;
+  name: string;
+  price: number;
+  billingPeriod: "monthly" | "yearly";
+  durationDays: number;
+  description: string;
+  features: string[];
+  galleryLimit: number;
+  featured: boolean;
+  active: boolean;
+};
 
 const SETTINGS_STORAGE_KEY = "admin.locationProviderSettings";
 const PENDING_LISTING_STORAGE_KEY = "submit.pendingListing";
 
 export default function SubmitPage() {
   const { isAuthenticated, user, login } = useAuth();
-  const pricingPackages = useMemo(() => getActivePricingPackages(), []);
+  const [pricingPackages, setPricingPackages] = useState<PricingPackage[]>([]);
+  const [pricingLoading, setPricingLoading] = useState(true);
+  const [pricingError, setPricingError] = useState("");
   const [step, setStep] = useState<Step>(1);
   const [accountMode, setAccountMode] = useState<AccountMode>("signin");
   const [submitting, setSubmitting] = useState(false);
@@ -74,6 +101,58 @@ export default function SubmitPage() {
   const [signupData, setSignupData] = useState({ name: "", username: "", email: "", password: "" });
 
   useEffect(() => {
+    let active = true;
+
+    const loadPricingPackages = async () => {
+      try {
+        setPricingLoading(true);
+        setPricingError("");
+
+        const response = await fetch("/api/pricing");
+        const payload = (await response.json().catch(() => [])) as
+          | PricingPackage[]
+          | { error?: string };
+
+        if (!response.ok) {
+          throw new Error(
+            !Array.isArray(payload)
+              ? payload.error || "Failed to load pricing packages."
+              : "Failed to load pricing packages.",
+          );
+        }
+
+        if (!active) return;
+
+        const rows = Array.isArray(payload) ? payload : [];
+        const filtered = rows
+          .filter((item) => item.active)
+          .sort((a, b) => {
+            if (a.featured && !b.featured) return -1;
+            if (!a.featured && b.featured) return 1;
+            return a.price - b.price;
+          });
+
+        setPricingPackages(filtered);
+      } catch (err) {
+        if (!active) return;
+        setPricingPackages([]);
+        setPricingError(
+          err instanceof Error ? err.message : "Failed to load pricing packages.",
+        );
+      } finally {
+        if (!active) return;
+        setPricingLoading(false);
+      }
+    };
+
+    void loadPricingPackages();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
     if (!raw) return;
     try {
@@ -111,9 +190,52 @@ export default function SubmitPage() {
     });
   };
 
-  const addProduct = () => setFormData((prev) => ({ ...prev, products: [...prev.products, { name: "", description: "", price: 0, image: "", inStock: true }] }));
+  const addProduct = () => setFormData((prev) => ({ ...prev, products: [...prev.products, { name: "", description: "", price: 0, image: "", purchaseLink: "", inStock: true }] }));
   const addMenuItem = () => setFormData((prev) => ({ ...prev, menuItems: [...prev.menuItems, { category: "", name: "", description: "", price: 0, dietary: [] }] }));
   const addService = () => setFormData((prev) => ({ ...prev, services: [...prev.services, { name: "", description: "", pricing: "" }] }));
+  const selectedPackageDetails =
+    pricingPackages.find((item) => item.id === selectedPackage) || null;
+  const selectedPackageFeatures = normalizePackageFeatures(
+    selectedPackageDetails?.features || [],
+  );
+  const hasFeature = (feature: PackageFeatureKey) =>
+    selectedPackageFeatures.includes(feature);
+
+  useEffect(() => {
+    const featureSet = new Set<PackageFeatureKey>(selectedPackageFeatures);
+    setFormData((prev) => {
+      let changed = false;
+      const next = { ...prev };
+
+      if (!featureSet.has("branding")) {
+        if (next.logo || next.coverImage) changed = true;
+        next.logo = "";
+        next.coverImage = "";
+      }
+      if (!featureSet.has("gallery") && next.gallery.length > 0) {
+        changed = true;
+        next.gallery = [];
+      }
+      if (!featureSet.has("badges") && next.badgeIds.length > 0) {
+        changed = true;
+        next.badgeIds = [];
+      }
+      if (!featureSet.has("products") && next.products.length > 0) {
+        changed = true;
+        next.products = [];
+      }
+      if (!featureSet.has("menu_items") && next.menuItems.length > 0) {
+        changed = true;
+        next.menuItems = [];
+      }
+      if (!featureSet.has("services") && next.services.length > 0) {
+        changed = true;
+        next.services = [];
+      }
+
+      return changed ? next : prev;
+    });
+  }, [selectedPackageFeatures]);
 
   useEffect(() => {
     if (step !== 3 || provider === "google" || !formData.country) return;
@@ -206,6 +328,23 @@ export default function SubmitPage() {
       setUploading((p) => ({ ...p, gallery: true }));
       const urls = await Promise.all(Array.from(files).map((f) => uploadImage("gallery", f)));
       setFormData((p) => ({ ...p, gallery: [...p.gallery, ...urls] }));
+    } finally {
+      setUploading((p) => ({ ...p, gallery: false }));
+    }
+  };
+
+  const onUploadProductImage = async (index: number, file: File) => {
+    try {
+      setError("");
+      setUploading((p) => ({ ...p, gallery: true }));
+      const url = await uploadImage("gallery", file);
+      setFormData((prev) => {
+        const next = [...prev.products];
+        next[index] = { ...next[index], image: url };
+        return { ...prev, products: next };
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Product image upload failed");
     } finally {
       setUploading((p) => ({ ...p, gallery: false }));
     }
@@ -324,15 +463,52 @@ export default function SubmitPage() {
 
           {step === 1 && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                {pricingPackages.map((pkg) => (
-                  <button key={pkg.id} type="button" onClick={() => setSelectedPackage(pkg.id)} className={`text-left rounded-xl p-5 border-2 ${selectedPackage === pkg.id ? "border-emerald-600 bg-emerald-50" : "border-gray-200 hover:border-emerald-300"}`}>
-                    <h3 className="font-semibold text-lg text-gray-900">{pkg.name}</h3>
-                    <p className="text-emerald-700 font-bold">£{pkg.price}/month</p>
-                    <p className="text-sm text-gray-600 mt-2">{pkg.description}</p>
-                  </button>
-                ))}
-              </div>
+              {pricingLoading ? (
+                <div className="mb-8 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+                  Loading pricing packages...
+                </div>
+              ) : pricingError ? (
+                <div className="mb-8 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  {pricingError}
+                </div>
+              ) : pricingPackages.length === 0 ? (
+                <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  No active pricing packages found. Please enable at least one package in admin.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                  {pricingPackages.map((pkg) => (
+                    <button key={pkg.id} type="button" onClick={() => setSelectedPackage(pkg.id)} className={`text-left rounded-xl p-5 border-2 ${selectedPackage === pkg.id ? "border-emerald-600 bg-emerald-50" : "border-gray-200 hover:border-emerald-300"}`}>
+                      <h3 className="font-semibold text-lg text-gray-900">{pkg.name}</h3>
+                      <p className="text-emerald-700 font-bold">
+                       ${pkg.price}/{getBillingDurationLabel(pkg.billingPeriod, pkg.durationDays)}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-2">{pkg.description}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {selectedPackageDetails && (
+                <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                  <p className="mb-2 text-sm font-semibold text-emerald-900">
+                    Enabled features in {selectedPackageDetails.name}
+                  </p>
+                  {selectedPackageFeatures.length > 0 ? (
+                    <ul className="grid grid-cols-1 gap-1 md:grid-cols-2">
+                      {selectedPackageFeatures.map((feature) => (
+                        <li
+                          key={feature}
+                          className="text-sm text-emerald-800"
+                        >
+                          - {getPackageFeatureLabel(feature)}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-emerald-800">No features enabled.</p>
+                  )}
+                </div>
+              )}
               <div className="mb-6 rounded-xl border border-gray-200 p-4">
                 <p className="mb-3 text-sm font-semibold text-gray-800">Payment Type</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -354,7 +530,7 @@ export default function SubmitPage() {
                   </button>
                 </div>
               </div>
-              <button type="button" onClick={() => selectedPackage && setStep(2)} disabled={!selectedPackage} className="w-full btn-primary disabled:opacity-50">Continue to Account</button>
+              <button type="button" onClick={() => selectedPackage && setStep(2)} disabled={!selectedPackage || pricingLoading || pricingPackages.length === 0} className="w-full btn-primary disabled:opacity-50">Continue to Account</button>
             </>
           )}
 
@@ -424,73 +600,108 @@ export default function SubmitPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {hasFeature("branding") && (
+                  <div className="rounded-lg border-2 border-gray-200 p-3">
+                    <p className="text-sm font-semibold mb-2">Logo upload</p>
+                    <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload("logo", f); }} />
+                    {formData.logo && <img src={formData.logo} alt="Logo" className="mt-3 h-20 w-20 rounded-md object-cover" />}
+                  </div>
+                )}
+                {hasFeature("branding") && (
+                  <div className="rounded-lg border-2 border-gray-200 p-3">
+                    <p className="text-sm font-semibold mb-2">Cover upload</p>
+                    <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload("coverImage", f); }} />
+                    {formData.coverImage && <img src={formData.coverImage} alt="Cover" className="mt-3 h-20 w-full rounded-md object-cover" />}
+                  </div>
+                )}
+              </div>
+
+              {hasFeature("gallery") && (
                 <div className="rounded-lg border-2 border-gray-200 p-3">
-                  <p className="text-sm font-semibold mb-2">Logo upload</p>
-                  <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload("logo", f); }} />
-                  {formData.logo && <img src={formData.logo} alt="Logo" className="mt-3 h-20 w-20 rounded-md object-cover" />}
+                  <p className="text-sm font-semibold mb-2">Gallery upload</p>
+                  <input type="file" multiple accept="image/*" onChange={(e) => onUploadGallery(e.target.files)} />
+                  {!!formData.gallery.length && <div className="mt-2 grid grid-cols-4 gap-2">{formData.gallery.map((url, idx) => <img key={`${url}-${idx}`} src={url} alt={`Gallery ${idx + 1}`} className="h-16 w-full rounded-md object-cover" />)}</div>}
                 </div>
+              )}
+
+              {hasFeature("badges") && (
                 <div className="rounded-lg border-2 border-gray-200 p-3">
-                  <p className="text-sm font-semibold mb-2">Cover upload</p>
-                  <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload("coverImage", f); }} />
-                  {formData.coverImage && <img src={formData.coverImage} alt="Cover" className="mt-3 h-20 w-full rounded-md object-cover" />}
+                  <p className="text-sm font-semibold mb-2">Badges</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {badges.map((b) => {
+                      const checked = formData.badgeIds.includes(b.id);
+                      return (
+                        <label key={b.id} className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${checked ? "border-emerald-500 bg-emerald-50" : "border-gray-200"}`}>
+                          <input type="checkbox" checked={checked} onChange={(e) => setFormData((p) => ({ ...p, badgeIds: e.target.checked ? [...p.badgeIds, b.id] : p.badgeIds.filter((id) => id !== b.id) }))} />
+                          <span>{b.icon}</span><span>{b.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="rounded-lg border-2 border-gray-200 p-3">
-                <p className="text-sm font-semibold mb-2">Gallery upload</p>
-                <input type="file" multiple accept="image/*" onChange={(e) => onUploadGallery(e.target.files)} />
-                {!!formData.gallery.length && <div className="mt-2 grid grid-cols-4 gap-2">{formData.gallery.map((url, idx) => <img key={`${url}-${idx}`} src={url} alt={`Gallery ${idx + 1}`} className="h-16 w-full rounded-md object-cover" />)}</div>}
-              </div>
-
-              <div className="rounded-lg border-2 border-gray-200 p-3">
-                <p className="text-sm font-semibold mb-2">Badges</p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {badges.map((b) => {
-                    const checked = formData.badgeIds.includes(b.id);
-                    return (
-                      <label key={b.id} className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${checked ? "border-emerald-500 bg-emerald-50" : "border-gray-200"}`}>
-                        <input type="checkbox" checked={checked} onChange={(e) => setFormData((p) => ({ ...p, badgeIds: e.target.checked ? [...p.badgeIds, b.id] : p.badgeIds.filter((id) => id !== b.id) }))} />
-                        <span>{b.icon}</span><span>{b.name}</span>
-                      </label>
-                    );
-                  })}
+              {hasFeature("products") && (
+                <div className="rounded-lg border-2 border-gray-200 p-3 space-y-3">
+                  <div className="flex items-center justify-between"><p className="text-sm font-semibold">Products</p><button type="button" onClick={addProduct} className="rounded-md border border-emerald-300 px-2 py-1 text-xs font-semibold text-emerald-700">+ Add</button></div>
+                  {formData.products.map((p, i) => (
+                    <div key={`product-${i}`} className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                      <input value={p.name} onChange={(e) => setFormData((prev) => { const v = [...prev.products]; v[i] = { ...v[i], name: e.target.value }; return { ...prev, products: v }; })} placeholder="Name" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                      <input value={p.description} onChange={(e) => setFormData((prev) => { const v = [...prev.products]; v[i] = { ...v[i], description: e.target.value }; return { ...prev, products: v }; })} placeholder="Description" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                      <input type="number" step="0.01" value={p.price} onChange={(e) => setFormData((prev) => { const v = [...prev.products]; v[i] = { ...v[i], price: Number(e.target.value || 0) }; return { ...prev, products: v }; })} placeholder="Price" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                      <input type="url" value={p.purchaseLink} onChange={(e) => setFormData((prev) => { const v = [...prev.products]; v[i] = { ...v[i], purchaseLink: e.target.value }; return { ...prev, products: v }; })} placeholder="External purchase link (optional)" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                      <div className="md:col-span-2 rounded-lg border border-gray-200 p-3">
+                        <p className="mb-2 text-xs font-semibold text-gray-700">Product image</p>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              onUploadProductImage(i, file);
+                            }
+                          }}
+                          className="w-full text-sm"
+                        />
+                        {p.image && (
+                          <img
+                            src={p.image}
+                            alt={`${p.name || "Product"} image`}
+                            className="mt-2 h-20 w-28 rounded-md object-cover"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              )}
 
-              <div className="rounded-lg border-2 border-gray-200 p-3 space-y-3">
-                <div className="flex items-center justify-between"><p className="text-sm font-semibold">Products</p><button type="button" onClick={addProduct} className="rounded-md border border-emerald-300 px-2 py-1 text-xs font-semibold text-emerald-700">+ Add</button></div>
-                {formData.products.map((p, i) => (
-                  <div key={`product-${i}`} className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                    <input value={p.name} onChange={(e) => setFormData((prev) => { const v = [...prev.products]; v[i] = { ...v[i], name: e.target.value }; return { ...prev, products: v }; })} placeholder="Name" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                    <input value={p.description} onChange={(e) => setFormData((prev) => { const v = [...prev.products]; v[i] = { ...v[i], description: e.target.value }; return { ...prev, products: v }; })} placeholder="Description" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                    <input type="number" step="0.01" value={p.price} onChange={(e) => setFormData((prev) => { const v = [...prev.products]; v[i] = { ...v[i], price: Number(e.target.value || 0) }; return { ...prev, products: v }; })} placeholder="Price" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                    <input value={p.image} onChange={(e) => setFormData((prev) => { const v = [...prev.products]; v[i] = { ...v[i], image: e.target.value }; return { ...prev, products: v }; })} placeholder="Image URL" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                  </div>
-                ))}
-              </div>
+              {hasFeature("menu_items") && (
+                <div className="rounded-lg border-2 border-gray-200 p-3 space-y-3">
+                  <div className="flex items-center justify-between"><p className="text-sm font-semibold">Menu Items</p><button type="button" onClick={addMenuItem} className="rounded-md border border-emerald-300 px-2 py-1 text-xs font-semibold text-emerald-700">+ Add</button></div>
+                  {formData.menuItems.map((m, i) => (
+                    <div key={`menu-${i}`} className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                      <input value={m.category} onChange={(e) => setFormData((prev) => { const v = [...prev.menuItems]; v[i] = { ...v[i], category: e.target.value }; return { ...prev, menuItems: v }; })} placeholder="Category" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                      <input value={m.name} onChange={(e) => setFormData((prev) => { const v = [...prev.menuItems]; v[i] = { ...v[i], name: e.target.value }; return { ...prev, menuItems: v }; })} placeholder="Name" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                      <input value={m.description} onChange={(e) => setFormData((prev) => { const v = [...prev.menuItems]; v[i] = { ...v[i], description: e.target.value }; return { ...prev, menuItems: v }; })} placeholder="Description" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                      <input type="number" step="0.01" value={m.price} onChange={(e) => setFormData((prev) => { const v = [...prev.menuItems]; v[i] = { ...v[i], price: Number(e.target.value || 0) }; return { ...prev, menuItems: v }; })} placeholder="Price" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                    </div>
+                  ))}
+                </div>
+              )}
 
-              <div className="rounded-lg border-2 border-gray-200 p-3 space-y-3">
-                <div className="flex items-center justify-between"><p className="text-sm font-semibold">Menu Items</p><button type="button" onClick={addMenuItem} className="rounded-md border border-emerald-300 px-2 py-1 text-xs font-semibold text-emerald-700">+ Add</button></div>
-                {formData.menuItems.map((m, i) => (
-                  <div key={`menu-${i}`} className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                    <input value={m.category} onChange={(e) => setFormData((prev) => { const v = [...prev.menuItems]; v[i] = { ...v[i], category: e.target.value }; return { ...prev, menuItems: v }; })} placeholder="Category" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                    <input value={m.name} onChange={(e) => setFormData((prev) => { const v = [...prev.menuItems]; v[i] = { ...v[i], name: e.target.value }; return { ...prev, menuItems: v }; })} placeholder="Name" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                    <input value={m.description} onChange={(e) => setFormData((prev) => { const v = [...prev.menuItems]; v[i] = { ...v[i], description: e.target.value }; return { ...prev, menuItems: v }; })} placeholder="Description" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                    <input type="number" step="0.01" value={m.price} onChange={(e) => setFormData((prev) => { const v = [...prev.menuItems]; v[i] = { ...v[i], price: Number(e.target.value || 0) }; return { ...prev, menuItems: v }; })} placeholder="Price" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                  </div>
-                ))}
-              </div>
-
-              <div className="rounded-lg border-2 border-gray-200 p-3 space-y-3">
-                <div className="flex items-center justify-between"><p className="text-sm font-semibold">Services</p><button type="button" onClick={addService} className="rounded-md border border-emerald-300 px-2 py-1 text-xs font-semibold text-emerald-700">+ Add</button></div>
-                {formData.services.map((s, i) => (
-                  <div key={`service-${i}`} className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <input value={s.name} onChange={(e) => setFormData((prev) => { const v = [...prev.services]; v[i] = { ...v[i], name: e.target.value }; return { ...prev, services: v }; })} placeholder="Name" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                    <input value={s.description} onChange={(e) => setFormData((prev) => { const v = [...prev.services]; v[i] = { ...v[i], description: e.target.value }; return { ...prev, services: v }; })} placeholder="Description" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                    <input value={s.pricing} onChange={(e) => setFormData((prev) => { const v = [...prev.services]; v[i] = { ...v[i], pricing: e.target.value }; return { ...prev, services: v }; })} placeholder="Pricing" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                  </div>
-                ))}
-              </div>
+              {hasFeature("services") && (
+                <div className="rounded-lg border-2 border-gray-200 p-3 space-y-3">
+                  <div className="flex items-center justify-between"><p className="text-sm font-semibold">Services</p><button type="button" onClick={addService} className="rounded-md border border-emerald-300 px-2 py-1 text-xs font-semibold text-emerald-700">+ Add</button></div>
+                  {formData.services.map((s, i) => (
+                    <div key={`service-${i}`} className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <input value={s.name} onChange={(e) => setFormData((prev) => { const v = [...prev.services]; v[i] = { ...v[i], name: e.target.value }; return { ...prev, services: v }; })} placeholder="Name" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                      <input value={s.description} onChange={(e) => setFormData((prev) => { const v = [...prev.services]; v[i] = { ...v[i], description: e.target.value }; return { ...prev, services: v }; })} placeholder="Description" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                      <input value={s.pricing} onChange={(e) => setFormData((prev) => { const v = [...prev.services]; v[i] = { ...v[i], pricing: e.target.value }; return { ...prev, services: v }; })} placeholder="Pricing" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="flex gap-4">
                 <button type="button" onClick={() => setStep(2)} className="flex-1 rounded-lg border-2 border-emerald-600 px-6 py-3 font-semibold text-emerald-600 hover:bg-emerald-50">Back</button>

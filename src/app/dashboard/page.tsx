@@ -139,19 +139,19 @@ export default function DashboardPage() {
                 <StatsCard
                   icon="📊"
                   label="Views"
-                  value={Math.floor(Math.random() * 1000)}
+                  value={business.views ?? 0}
                 />
                 <StatsCard
                   icon="👥"
                   label="Clicks"
-                  value={Math.floor(Math.random() * 500)}
+                  value={business.clicks ?? 0}
                 />
                 <StatsCard
-                  icon="📞"
-                  label="Contacts"
-                  value={Math.floor(Math.random() * 100)}
+                  icon="❤️"
+                  label="Likes"
+                  value={business.likes ?? 0}
                 />
-                <StatsCard icon="⭐" label="Rating" value="4.8" />
+                <StatsCard icon="⭐" label="Rating" value={business.reviewCount > 0 ? Number(business.averageRating || 0).toFixed(1) : "New"} />
               </div>
 
               <div className="bg-white rounded-2xl shadow-md p-8 mb-8">
@@ -214,3 +214,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+

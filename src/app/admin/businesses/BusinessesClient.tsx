@@ -22,6 +22,11 @@ import {
   type UserOption,
 } from "./types";
 import { COUNTRY_OPTIONS, getCountryCode } from "./locationOptions";
+import {
+  getPackageFeatureLabel,
+  type PackageFeatureKey,
+} from "@/lib/package-features";
+import { addBillingDuration, type PricingBillingPeriod } from "@/lib/pricing-duration";
 
 interface BusinessesClientProps {
   initialBusinesses: BusinessRow[];
@@ -45,20 +50,14 @@ const SETTINGS_STORAGE_KEY = "admin.locationProviderSettings";
 
 function calculatePackageExpiryDate(
   createdAtIso: string,
-  billingPeriod?: "monthly" | "yearly",
+  billingPeriod?: PricingBillingPeriod,
+  durationDays?: number,
 ) {
   if (!billingPeriod) return null;
   const start = new Date(createdAtIso);
   if (Number.isNaN(start.getTime())) return null;
 
-  const expiresAt = new Date(start);
-  if (billingPeriod === "monthly") {
-    expiresAt.setMonth(expiresAt.getMonth() + 1);
-  } else {
-    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-  }
-
-  return expiresAt;
+  return addBillingDuration(start, billingPeriod, durationDays);
 }
 
 function formatDate(value: Date) {
@@ -195,10 +194,12 @@ export default function BusinessesClient({
         const expiryA = calculatePackageExpiryDate(
           a.createdAt,
           a.pricingPackage?.billingPeriod,
+          a.pricingPackage?.durationDays,
         )?.getTime();
         const expiryB = calculatePackageExpiryDate(
           b.createdAt,
           b.pricingPackage?.billingPeriod,
+          b.pricingPackage?.durationDays,
         )?.getTime();
         return (expiryA || 0) - (expiryB || 0);
       }
@@ -242,6 +243,14 @@ export default function BusinessesClient({
     () => packages.find((item) => item.id === formData.pricingPackageId),
     [formData.pricingPackageId, packages],
   );
+  const enabledFeatureSet = useMemo(
+    () => new Set<PackageFeatureKey>(selectedPackage?.features || []),
+    [selectedPackage],
+  );
+  const hasFeature = (feature: PackageFeatureKey) => enabledFeatureSet.has(feature);
+  const featureLockMessage = formData.pricingPackageId
+    ? "Selected package does not include this feature."
+    : "Select a pricing package to unlock this feature.";
 
   useEffect(() => {
     setCurrentPage(1);
@@ -555,6 +564,29 @@ export default function BusinessesClient({
             Math.max(nextPackage.galleryLimit, 0),
           );
         }
+        const nextFeatures = new Set<PackageFeatureKey>(nextPackage?.features || []);
+        if (!nextFeatures.has("branding")) {
+          updated.logo = "";
+          updated.coverImage = "";
+        }
+        if (!nextFeatures.has("gallery")) {
+          updated.gallery = [];
+        }
+        if (!nextFeatures.has("products")) {
+          updated.products = [];
+        }
+        if (!nextFeatures.has("services")) {
+          updated.services = [];
+        }
+        if (!nextFeatures.has("menu_items")) {
+          updated.menuItems = [];
+        }
+        if (!nextFeatures.has("badges")) {
+          updated.badgeIds = [];
+        }
+        if (!nextFeatures.has("featured_listing")) {
+          updated.featured = false;
+        }
       }
       if (name === "country") {
         updated.address = "";
@@ -636,6 +668,10 @@ export default function BusinessesClient({
   };
 
   const handleImageUpload = async (field: "logo" | "coverImage", file: File) => {
+    if (!hasFeature("branding")) {
+      setError(featureLockMessage);
+      return;
+    }
     try {
       setError(null);
       setUploading((prev) => ({ ...prev, [field]: true }));
@@ -655,6 +691,10 @@ export default function BusinessesClient({
 
   const handleGalleryUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
+    if (!hasFeature("gallery")) {
+      setError(featureLockMessage);
+      return;
+    }
 
     try {
       setError(null);
@@ -712,6 +752,7 @@ export default function BusinessesClient({
     field: "name" | "description" | "price" | "image" | "inStock",
     value: string | number | boolean,
   ) => {
+    if (!hasFeature("products")) return;
     setFormData((prev) => ({
       ...prev,
       products: prev.products.map((item, itemIndex) =>
@@ -725,6 +766,7 @@ export default function BusinessesClient({
     field: "name" | "description" | "pricing",
     value: string,
   ) => {
+    if (!hasFeature("services")) return;
     setFormData((prev) => ({
       ...prev,
       services: prev.services.map((item, itemIndex) =>
@@ -738,6 +780,7 @@ export default function BusinessesClient({
     field: "category" | "name" | "description" | "price" | "dietary",
     value: string | number,
   ) => {
+    if (!hasFeature("menu_items")) return;
     setFormData((prev) => ({
       ...prev,
       menuItems: prev.menuItems.map((item, itemIndex) => {
@@ -912,6 +955,16 @@ export default function BusinessesClient({
                       </option>
                     ))}
                   </select>
+                  {selectedPackage && (
+                    <p className="mt-2 text-xs text-gray-500">
+                      Enabled:{" "}
+                      {selectedPackage.features.length > 0
+                        ? selectedPackage.features
+                            .map((feature) => getPackageFeatureLabel(feature))
+                            .join(", ")
+                        : "None"}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -1119,6 +1172,7 @@ export default function BusinessesClient({
                     <input
                       type="file"
                       accept="image/jpeg,image/png,image/webp,image/gif"
+                      disabled={!hasFeature("branding")}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) handleImageUpload("logo", file);
@@ -1128,6 +1182,9 @@ export default function BusinessesClient({
                     <p className="mt-2 text-xs text-gray-500">
                       JPG, PNG, WEBP, or GIF up to 5MB.
                     </p>
+                    {!hasFeature("branding") && (
+                      <p className="mt-2 text-xs text-amber-700">{featureLockMessage}</p>
+                    )}
                     {uploading.logo && (
                       <p className="mt-2 text-xs text-emerald-700">
                         Uploading...
@@ -1162,6 +1219,7 @@ export default function BusinessesClient({
                     <input
                       type="file"
                       accept="image/jpeg,image/png,image/webp,image/gif"
+                      disabled={!hasFeature("branding")}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) handleImageUpload("coverImage", file);
@@ -1171,6 +1229,9 @@ export default function BusinessesClient({
                     <p className="mt-2 text-xs text-gray-500">
                       JPG, PNG, WEBP, or GIF up to 5MB.
                     </p>
+                    {!hasFeature("branding") && (
+                      <p className="mt-2 text-xs text-amber-700">{featureLockMessage}</p>
+                    )}
                     {uploading.coverImage && (
                       <p className="mt-2 text-xs text-emerald-700">
                         Uploading...
@@ -1207,6 +1268,7 @@ export default function BusinessesClient({
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/gif"
                     multiple
+                    disabled={!hasFeature("gallery")}
                     onChange={(e) => {
                       handleGalleryUpload(e.target.files);
                       e.currentTarget.value = "";
@@ -1222,6 +1284,9 @@ export default function BusinessesClient({
                       {selectedPackage.galleryLimit === 1 ? "" : "s"} (currently{" "}
                       {formData.gallery.length})
                     </p>
+                  )}
+                  {!hasFeature("gallery") && (
+                    <p className="mt-1 text-xs text-amber-700">{featureLockMessage}</p>
                   )}
                   {uploading.gallery && (
                     <p className="mt-2 text-xs text-emerald-700">Uploading...</p>
@@ -1266,6 +1331,7 @@ export default function BusinessesClient({
                     <p className="text-sm font-semibold text-gray-700">Products</p>
                     <button
                       type="button"
+                      disabled={!hasFeature("products")}
                       onClick={() =>
                         setFormData((prev) => ({
                           ...prev,
@@ -1281,7 +1347,7 @@ export default function BusinessesClient({
                           ],
                         }))
                       }
-                      className="rounded-md border border-emerald-300 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+                      className="rounded-md border border-emerald-300 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       + Add Product
                     </button>
@@ -1295,6 +1361,7 @@ export default function BusinessesClient({
                         <div className="grid grid-cols-2 gap-3">
                           <input
                             value={product.name}
+                            disabled={!hasFeature("products")}
                             onChange={(e) =>
                               updateProductField(index, "name", e.target.value)
                             }
@@ -1305,6 +1372,7 @@ export default function BusinessesClient({
                             type="number"
                             step="0.01"
                             value={product.price}
+                            disabled={!hasFeature("products")}
                             onChange={(e) =>
                               updateProductField(
                                 index,
@@ -1318,6 +1386,7 @@ export default function BusinessesClient({
                         </div>
                         <input
                           value={product.description}
+                          disabled={!hasFeature("products")}
                           onChange={(e) =>
                             updateProductField(index, "description", e.target.value)
                           }
@@ -1326,6 +1395,7 @@ export default function BusinessesClient({
                         />
                         <input
                           value={product.image}
+                          disabled={!hasFeature("products")}
                           onChange={(e) =>
                             updateProductField(index, "image", e.target.value)
                           }
@@ -1337,6 +1407,7 @@ export default function BusinessesClient({
                             <input
                               type="checkbox"
                               checked={product.inStock}
+                              disabled={!hasFeature("products")}
                               onChange={(e) =>
                                 updateProductField(index, "inStock", e.target.checked)
                               }
@@ -1345,6 +1416,7 @@ export default function BusinessesClient({
                           </label>
                           <button
                             type="button"
+                            disabled={!hasFeature("products")}
                             onClick={() =>
                               setFormData((prev) => ({
                                 ...prev,
@@ -1353,7 +1425,7 @@ export default function BusinessesClient({
                                 ),
                               }))
                             }
-                            className="text-xs font-semibold text-red-600 hover:text-red-700"
+                            className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             Remove
                           </button>
@@ -1363,6 +1435,9 @@ export default function BusinessesClient({
                     {formData.products.length === 0 && (
                       <p className="text-sm text-gray-500">No products added yet.</p>
                     )}
+                    {!hasFeature("products") && (
+                      <p className="text-sm text-amber-700">{featureLockMessage}</p>
+                    )}
                   </div>
                 </div>
 
@@ -1371,6 +1446,7 @@ export default function BusinessesClient({
                     <p className="text-sm font-semibold text-gray-700">Services</p>
                     <button
                       type="button"
+                      disabled={!hasFeature("services")}
                       onClick={() =>
                         setFormData((prev) => ({
                           ...prev,
@@ -1380,7 +1456,7 @@ export default function BusinessesClient({
                           ],
                         }))
                       }
-                      className="rounded-md border border-emerald-300 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+                      className="rounded-md border border-emerald-300 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       + Add Service
                     </button>
@@ -1393,6 +1469,7 @@ export default function BusinessesClient({
                       >
                         <input
                           value={service.name}
+                          disabled={!hasFeature("services")}
                           onChange={(e) =>
                             updateServiceField(index, "name", e.target.value)
                           }
@@ -1401,6 +1478,7 @@ export default function BusinessesClient({
                         />
                         <input
                           value={service.description}
+                          disabled={!hasFeature("services")}
                           onChange={(e) =>
                             updateServiceField(index, "description", e.target.value)
                           }
@@ -1410,6 +1488,7 @@ export default function BusinessesClient({
                         <div className="mt-3 flex items-center gap-3">
                           <input
                             value={service.pricing}
+                            disabled={!hasFeature("services")}
                             onChange={(e) =>
                               updateServiceField(index, "pricing", e.target.value)
                             }
@@ -1418,6 +1497,7 @@ export default function BusinessesClient({
                           />
                           <button
                             type="button"
+                            disabled={!hasFeature("services")}
                             onClick={() =>
                               setFormData((prev) => ({
                                 ...prev,
@@ -1426,7 +1506,7 @@ export default function BusinessesClient({
                                 ),
                               }))
                             }
-                            className="text-xs font-semibold text-red-600 hover:text-red-700"
+                            className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             Remove
                           </button>
@@ -1436,6 +1516,9 @@ export default function BusinessesClient({
                     {formData.services.length === 0 && (
                       <p className="text-sm text-gray-500">No services added yet.</p>
                     )}
+                    {!hasFeature("services") && (
+                      <p className="text-sm text-amber-700">{featureLockMessage}</p>
+                    )}
                   </div>
                 </div>
 
@@ -1444,6 +1527,7 @@ export default function BusinessesClient({
                     <p className="text-sm font-semibold text-gray-700">Menu Items</p>
                     <button
                       type="button"
+                      disabled={!hasFeature("menu_items")}
                       onClick={() =>
                         setFormData((prev) => ({
                           ...prev,
@@ -1459,7 +1543,7 @@ export default function BusinessesClient({
                           ],
                         }))
                       }
-                      className="rounded-md border border-emerald-300 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+                      className="rounded-md border border-emerald-300 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       + Add Menu Item
                     </button>
@@ -1473,6 +1557,7 @@ export default function BusinessesClient({
                         <div className="grid grid-cols-2 gap-3">
                           <input
                             value={menuItem.category}
+                            disabled={!hasFeature("menu_items")}
                             onChange={(e) =>
                               updateMenuItemField(index, "category", e.target.value)
                             }
@@ -1483,6 +1568,7 @@ export default function BusinessesClient({
                             type="number"
                             step="0.01"
                             value={menuItem.price}
+                            disabled={!hasFeature("menu_items")}
                             onChange={(e) =>
                               updateMenuItemField(
                                 index,
@@ -1496,6 +1582,7 @@ export default function BusinessesClient({
                         </div>
                         <input
                           value={menuItem.name}
+                          disabled={!hasFeature("menu_items")}
                           onChange={(e) =>
                             updateMenuItemField(index, "name", e.target.value)
                           }
@@ -1504,6 +1591,7 @@ export default function BusinessesClient({
                         />
                         <input
                           value={menuItem.description}
+                          disabled={!hasFeature("menu_items")}
                           onChange={(e) =>
                             updateMenuItemField(index, "description", e.target.value)
                           }
@@ -1513,6 +1601,7 @@ export default function BusinessesClient({
                         <div className="mt-3 flex items-center gap-3">
                           <input
                             value={menuItem.dietary.join(", ")}
+                            disabled={!hasFeature("menu_items")}
                             onChange={(e) =>
                               updateMenuItemField(index, "dietary", e.target.value)
                             }
@@ -1521,6 +1610,7 @@ export default function BusinessesClient({
                           />
                           <button
                             type="button"
+                            disabled={!hasFeature("menu_items")}
                             onClick={() =>
                               setFormData((prev) => ({
                                 ...prev,
@@ -1529,7 +1619,7 @@ export default function BusinessesClient({
                                 ),
                               }))
                             }
-                            className="text-xs font-semibold text-red-600 hover:text-red-700"
+                            className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             Remove
                           </button>
@@ -1538,6 +1628,9 @@ export default function BusinessesClient({
                     ))}
                     {formData.menuItems.length === 0 && (
                       <p className="text-sm text-gray-500">No menu items added yet.</p>
+                    )}
+                    {!hasFeature("menu_items") && (
+                      <p className="text-sm text-amber-700">{featureLockMessage}</p>
                     )}
                   </div>
                 </div>
@@ -1563,6 +1656,7 @@ export default function BusinessesClient({
                       type="checkbox"
                       name="featured"
                       checked={formData.featured}
+                      disabled={!hasFeature("featured_listing")}
                       onChange={handleChange}
                     />
                     <span className="text-sm font-medium text-gray-700">
@@ -1570,6 +1664,9 @@ export default function BusinessesClient({
                     </span>
                   </label>
                 </div>
+                {!hasFeature("featured_listing") && (
+                  <p className="-mt-2 text-sm text-amber-700">{featureLockMessage}</p>
+                )}
 
                 <div className="rounded-lg border-2 border-gray-200 p-4">
                   <p className="mb-3 text-sm font-semibold text-gray-700">
@@ -1592,7 +1689,9 @@ export default function BusinessesClient({
                             <input
                               type="checkbox"
                               checked={checked}
+                              disabled={!hasFeature("badges")}
                               onChange={(e) => {
+                                if (!hasFeature("badges")) return;
                                 setFormData((prev) => ({
                                   ...prev,
                                   badgeIds: e.target.checked
@@ -1613,6 +1712,9 @@ export default function BusinessesClient({
                     <p className="text-sm text-gray-500">
                       No badges found. Create badges first from the badges page.
                     </p>
+                  )}
+                  {!hasFeature("badges") && (
+                    <p className="mt-3 text-sm text-amber-700">{featureLockMessage}</p>
                   )}
                 </div>
 
@@ -1763,6 +1865,7 @@ export default function BusinessesClient({
                       const packageExpiryDate = calculatePackageExpiryDate(
                         business.createdAt,
                         business.pricingPackage?.billingPeriod,
+                        business.pricingPackage?.durationDays,
                       );
                       const rowIndex = pageStartIndex + idx;
                       return (

@@ -4,11 +4,23 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import type { PricingPackage } from "@/data/mockData";
+import {
+  getPackageFeatureLabel,
+  normalizePackageFeatures,
+  PACKAGE_FEATURE_OPTIONS,
+  type PackageFeatureKey,
+} from "@/lib/package-features";
+import {
+  getBillingDurationDays,
+  getBillingDurationLabel,
+  getBillingPeriodFromDurationDays,
+} from "@/lib/pricing-duration";
 
 const emptyForm: Partial<PricingPackage> = {
   name: "",
   price: 0,
   billingPeriod: "monthly",
+  durationDays: 30,
   description: "",
   features: [],
   galleryLimit: 0,
@@ -25,6 +37,10 @@ export default function PricingPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<Partial<PricingPackage>>(emptyForm);
+  const selectedFormFeatures = useMemo(
+    () => normalizePackageFeatures(formData.features),
+    [formData.features],
+  );
 
   const user =
     typeof window !== "undefined"
@@ -53,10 +69,12 @@ export default function PricingPage() {
 
         const normalized: PricingPackage[] = data.map((item) => ({
           ...item,
-          features: Array.isArray(item.features)
-            ? item.features.filter((x): x is string => typeof x === "string")
-            : [],
+          features: normalizePackageFeatures(item.features),
           galleryLimit: Number(item.galleryLimit || 0),
+          durationDays: getBillingDurationDays(
+            item.billingPeriod,
+            Number(item.durationDays || 0),
+          ),
         }));
 
         setPackages(normalized);
@@ -72,13 +90,14 @@ export default function PricingPage() {
 
   const canSubmit = useMemo(() => {
     return Boolean(
-      formData.name &&
+        formData.name &&
         formData.description &&
-        (formData.features || []).length > 0 &&
+        selectedFormFeatures.length > 0 &&
         Number(formData.price) >= 0 &&
+        Number(formData.durationDays) >= 1 &&
         Number(formData.galleryLimit) >= 0,
     );
-  }, [formData]);
+  }, [formData, selectedFormFeatures.length]);
 
   const handleEdit = (pkg: PricingPackage) => {
     setEditingId(pkg.id);
@@ -108,27 +127,26 @@ export default function PricingPage() {
       [name]:
         type === "checkbox"
           ? (e.target as HTMLInputElement).checked
-          : name === "price" || name === "galleryLimit"
+          : name === "price" || name === "galleryLimit" || name === "durationDays"
             ? Number(value)
             : value,
     }));
   };
 
-  const handleFeatureChange = (index: number, value: string) => {
-    const newFeatures = [...(formData.features || [])];
-    newFeatures[index] = value;
-    setFormData((prev) => ({ ...prev, features: newFeatures }));
-  };
-
-  const handleAddFeature = () => {
-    setFormData((prev) => ({ ...prev, features: [...(prev.features || []), ""] }));
-  };
-
-  const handleRemoveFeature = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      features: (prev.features || []).filter((_, i) => i !== index),
-    }));
+  const toggleFeature = (featureKey: PackageFeatureKey, checked: boolean) => {
+    setFormData((prev) => {
+      const current = normalizePackageFeatures(prev.features);
+      if (checked) {
+        return {
+          ...prev,
+          features: Array.from(new Set([...current, featureKey])),
+        };
+      }
+      return {
+        ...prev,
+        features: current.filter((item) => item !== featureKey),
+      };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -142,9 +160,12 @@ export default function PricingPage() {
       const payload = {
         name: formData.name || "",
         price: Number(formData.price || 0),
-        billingPeriod: (formData.billingPeriod || "monthly") as "monthly" | "yearly",
+        billingPeriod: getBillingPeriodFromDurationDays(
+          Number(formData.durationDays || 30),
+        ),
+        durationDays: Number(formData.durationDays || 30),
         description: formData.description || "",
-        features: (formData.features || []).filter((item) => item.trim().length > 0),
+        features: selectedFormFeatures,
         galleryLimit: Number(formData.galleryLimit || 0),
         featured: Boolean(formData.featured),
         active: formData.active !== false,
@@ -225,11 +246,8 @@ export default function PricingPage() {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">Billing Period</label>
-                    <select name="billingPeriod" value={formData.billingPeriod || "monthly"} onChange={handleChange} className="w-full rounded-lg border-2 border-gray-200 px-4 py-2 focus:border-emerald-500 focus:outline-none">
-                      <option value="monthly">Monthly</option>
-                      <option value="yearly">Yearly</option>
-                    </select>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">Duration (days)</label>
+                    <input type="number" name="durationDays" min="1" max="365" value={formData.durationDays ?? 30} onChange={handleChange} className="w-full rounded-lg border-2 border-gray-200 px-4 py-2 focus:border-emerald-500 focus:outline-none" required />
                   </div>
 
                   <div>
@@ -256,15 +274,26 @@ export default function PricingPage() {
 
                 <div>
                   <label className="mb-3 block text-sm font-semibold text-gray-700">Features</label>
-                  <div className="mb-3 space-y-2">
-                    {(formData.features || []).map((feature, idx) => (
-                      <div key={idx} className="flex gap-2">
-                        <input type="text" value={feature} onChange={(e) => handleFeatureChange(idx, e.target.value)} className="flex-1 rounded-lg border-2 border-gray-200 px-4 py-2 focus:border-emerald-500 focus:outline-none" placeholder="Enter feature" />
-                        <button type="button" onClick={() => handleRemoveFeature(idx)} className="rounded-lg bg-red-100 px-4 py-2 font-semibold text-red-700 hover:bg-red-200 transition-colors">Remove</button>
-                      </div>
-                    ))}
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {PACKAGE_FEATURE_OPTIONS.map((feature) => {
+                      const checked = selectedFormFeatures.includes(feature.key);
+                      return (
+                        <label
+                          key={feature.key}
+                          className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(event) =>
+                              toggleFeature(feature.key, event.target.checked)
+                            }
+                          />
+                          <span className="text-sm text-gray-700">{feature.label}</span>
+                        </label>
+                      );
+                    })}
                   </div>
-                  <button type="button" onClick={handleAddFeature} className="rounded-lg bg-blue-100 px-4 py-2 font-semibold text-blue-700 hover:bg-blue-200 transition-colors">+ Add Feature</button>
                 </div>
 
                 <div className="flex gap-4">
@@ -285,15 +314,15 @@ export default function PricingPage() {
                   <h3 className="mb-2 font-display text-xl font-bold text-gray-900">{pkg.name}</h3>
                   <div className="mb-4">
                     <span className="text-3xl font-bold text-emerald-600">${pkg.price}</span>
-                    <span className="text-sm text-gray-600">/{pkg.billingPeriod}</span>
+                    <span className="text-sm text-gray-600">/{getBillingDurationLabel(pkg.billingPeriod, pkg.durationDays)}</span>
                   </div>
                   <p className="mb-2 text-xs font-semibold text-gray-700">Gallery limit: {pkg.galleryLimit} images</p>
                   <p className="mb-4 text-sm text-gray-600">{pkg.description}</p>
                   <div className="mb-6">
                     <p className="mb-2 text-xs font-semibold text-gray-700">Features:</p>
                     <ul className="space-y-1">
-                      {pkg.features.map((feature, idx) => (
-                        <li key={idx} className="flex items-start text-xs text-gray-600"><span className="mr-2 text-emerald-600">-</span>{feature}</li>
+                      {normalizePackageFeatures(pkg.features).map((feature, idx) => (
+                        <li key={idx} className="flex items-start text-xs text-gray-600"><span className="mr-2 text-emerald-600">-</span>{getPackageFeatureLabel(feature)}</li>
                       ))}
                     </ul>
                   </div>

@@ -43,6 +43,7 @@ export interface PricingPackage {
   name: string;
   price: number;
   billingPeriod: "monthly" | "yearly";
+  durationDays: number;
   description: string;
   features: string[];
   galleryLimit: number;
@@ -245,6 +246,7 @@ export const pricingPackages: PricingPackage[] = [
     name: "Starter",
     price: 9.99,
     billingPeriod: "monthly",
+    durationDays: 30,
     description: "Perfect for new green businesses",
     features: [
       "Basic business profile",
@@ -262,6 +264,7 @@ export const pricingPackages: PricingPackage[] = [
     name: "Professional",
     price: 24.99,
     billingPeriod: "monthly",
+    durationDays: 30,
     description: "Most popular for established businesses",
     features: [
       "All Starter features",
@@ -281,6 +284,7 @@ export const pricingPackages: PricingPackage[] = [
     name: "Enterprise",
     price: 49.99,
     billingPeriod: "monthly",
+    durationDays: 30,
     description: "For large organizations",
     features: [
       "All Professional features",

@@ -7,6 +7,7 @@ const createPricingSchema = z.object({
   name: z.string(),
   price: z.number(),
   billingPeriod: z.enum(["monthly", "yearly"]),
+  durationDays: z.number().int().min(1).max(365),
   description: z.string(),
   features: z.array(z.string()),
   galleryLimit: z.number().int().min(0),

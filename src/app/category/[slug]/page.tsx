@@ -103,6 +103,7 @@ export default async function CategoryPage({
     include: {
       badges: { include: { badge: true } },
       pricingPackage: { select: { galleryLimit: true } },
+      reviews: { select: { rating: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -115,6 +116,12 @@ export default async function CategoryPage({
       typeof galleryLimit === "number"
         ? gallery.slice(0, Math.max(galleryLimit, 0))
         : gallery;
+    const reviewCount = item.reviews.length;
+    const averageRating =
+      reviewCount > 0
+        ? item.reviews.reduce((sum, review) => sum + review.rating, 0) /
+          reviewCount
+        : 0;
 
     return {
       id: item.id,
@@ -134,6 +141,8 @@ export default async function CategoryPage({
         postcode: asString(location.postcode),
       },
       badgeItems: item.badges.map((b) => b.badge),
+      averageRating,
+      reviewCount,
     };
   });
 
@@ -188,8 +197,8 @@ export default async function CategoryPage({
                     business={business as any}
                     category={category}
                     badges={business.badgeItems}
-                    averageRating={0}
-                    reviewCount={0}
+                    averageRating={business.averageRating}
+                    reviewCount={business.reviewCount}
                   />
                 ))}
               </div>

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { normalizePackageFeatures } from "@/lib/package-features";
 import BusinessesClient from "./BusinessesClient";
 import type {
   BadgeOption,
@@ -33,7 +34,7 @@ export default async function BusinessesPage() {
           owner: { select: { name: true } },
           category: { select: { name: true } },
           pricingPackage: {
-            select: { id: true, name: true, billingPeriod: true },
+            select: { id: true, name: true, billingPeriod: true, durationDays: true },
           },
           products: true,
           menuItems: true,
@@ -72,8 +73,10 @@ export default async function BusinessesPage() {
           id: true,
           name: true,
           billingPeriod: true,
+          durationDays: true,
           galleryLimit: true,
           active: true,
+          features: true,
         },
         orderBy: { name: "asc" },
       }),
@@ -100,6 +103,7 @@ export default async function BusinessesPage() {
             id: item.pricingPackage.id,
             name: item.pricingPackage.name,
             billingPeriod: item.pricingPackage.billingPeriod,
+            durationDays: item.pricingPackage.durationDays,
           }
         : undefined,
       status: item.status,
@@ -172,8 +176,10 @@ export default async function BusinessesPage() {
     id: item.id,
     name: item.name,
     billingPeriod: item.billingPeriod,
+    durationDays: item.durationDays,
     galleryLimit: item.galleryLimit,
     active: item.active,
+    features: normalizePackageFeatures(item.features),
   }));
 
   return (

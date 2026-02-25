@@ -125,6 +125,7 @@ model PricingPackage {
   name          String
   price         Float
   billingPeriod BillingPeriod
+  durationDays  Int           @default(30)
   description   String
   features      Json
   galleryLimit  Int           @default(0)

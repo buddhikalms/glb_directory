@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { getBillingDurationDays } from "@/lib/pricing-duration";
 import { getStripeClient } from "@/lib/stripe";
 
 const bodySchema = z.object({
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
         active: true,
         price: true,
         billingPeriod: true,
+        durationDays: true,
       },
     });
 
@@ -95,11 +97,20 @@ export async function POST(request: Request) {
                 price_data: {
                   currency: "gbp",
                   unit_amount: Math.round(pricingPackage.price * 100),
+                  // Stripe supports day intervals up to 365.
+                  // We use exact configured durationDays for recurring plans.
                   recurring: {
-                    interval:
-                      pricingPackage.billingPeriod === "yearly"
-                        ? "year"
-                        : "month",
+                    interval: "day",
+                    interval_count: Math.max(
+                      1,
+                      Math.min(
+                        365,
+                        getBillingDurationDays(
+                          pricingPackage.billingPeriod,
+                          pricingPackage.durationDays,
+                        ),
+                      ),
+                    ),
                   },
                   product_data: {
                     name: pricingPackage.name,

@@ -6,6 +6,10 @@ import {
   sendListingApprovedEmail,
   sendListingRejectedEmail,
 } from "@/lib/auth-email";
+import {
+  normalizePackageFeatures,
+  type PackageFeatureKey,
+} from "@/lib/package-features";
 import { prisma } from "@/lib/prisma";
 import type { BusinessFormData, BusinessRow, BusinessStatus } from "./types";
 
@@ -37,6 +41,7 @@ type BusinessWithRelations = Prisma.BusinessGetPayload<{
         id: true;
         name: true;
         billingPeriod: true;
+        durationDays: true;
       };
     };
     products: true;
@@ -94,6 +99,7 @@ function mapBusinessRow(item: BusinessWithRelations): BusinessRow {
           id: item.pricingPackage.id,
           name: item.pricingPackage.name,
           billingPeriod: item.pricingPackage.billingPeriod,
+          durationDays: item.pricingPackage.durationDays,
         }
       : undefined,
     status: item.status as BusinessStatus,
@@ -194,21 +200,31 @@ function normalizeServices(input: BusinessFormData) {
     .filter((item) => item.name && item.description);
 }
 
-async function clampGalleryToPackageLimit(
+async function getPackageAccess(
   tx: Prisma.TransactionClient,
-  input: BusinessFormData,
+  pricingPackageId: string,
 ) {
-  const gallery = Array.isArray(input.gallery) ? input.gallery : [];
-  if (!input.pricingPackageId) return gallery;
+  if (!pricingPackageId) {
+    return {
+      galleryLimit: 0,
+      featureSet: new Set<PackageFeatureKey>(),
+    };
+  }
 
   const pricingPackage = await tx.pricingPackage.findUnique({
-    where: { id: input.pricingPackageId },
-    select: { galleryLimit: true },
+    where: { id: pricingPackageId },
+    select: {
+      galleryLimit: true,
+      features: true,
+    },
   });
 
-  if (!pricingPackage) return gallery;
-  const limit = Math.max(pricingPackage.galleryLimit, 0);
-  return gallery.slice(0, limit);
+  return {
+    galleryLimit: Math.max(pricingPackage?.galleryLimit || 0, 0),
+    featureSet: new Set<PackageFeatureKey>(
+      normalizePackageFeatures(pricingPackage?.features),
+    ),
+  };
 }
 
 export async function createBusinessAction(input: BusinessFormData) {
@@ -217,10 +233,22 @@ export async function createBusinessAction(input: BusinessFormData) {
   const businessId = crypto.randomUUID();
 
   await prisma.$transaction(async (tx) => {
-    const gallery = await clampGalleryToPackageLimit(tx, input);
-    const products = normalizeProducts(input);
-    const menuItems = normalizeMenuItems(input);
-    const services = normalizeServices(input);
+    const packageAccess = await getPackageAccess(tx, input.pricingPackageId);
+    const canUseFeature = (feature: PackageFeatureKey) =>
+      packageAccess.featureSet.has(feature);
+    const gallerySource = Array.isArray(input.gallery) ? input.gallery : [];
+    const gallery = canUseFeature("gallery")
+      ? gallerySource.slice(0, packageAccess.galleryLimit)
+      : [];
+    const products = canUseFeature("products") ? normalizeProducts(input) : [];
+    const menuItems = canUseFeature("menu_items")
+      ? normalizeMenuItems(input)
+      : [];
+    const services = canUseFeature("services") ? normalizeServices(input) : [];
+    const badgeIds = canUseFeature("badges") ? input.badgeIds : [];
+    const logo = canUseFeature("branding") ? input.logo || "" : "";
+    const coverImage = canUseFeature("branding") ? input.coverImage || "" : "";
+    const featured = canUseFeature("featured_listing") ? input.featured : false;
 
     await tx.business.create({
       data: {
@@ -233,8 +261,8 @@ export async function createBusinessAction(input: BusinessFormData) {
         gallery,
         categoryId: input.categoryId,
         pricingPackageId: input.pricingPackageId || null,
-        logo: input.logo || "",
-        coverImage: input.coverImage || "",
+        logo,
+        coverImage,
         likes: 0,
         location: {
           country: input.country || "",
@@ -250,15 +278,15 @@ export async function createBusinessAction(input: BusinessFormData) {
         social: {},
         sustainability: [],
         status: input.status as PrismaBusinessStatus,
-        featured: input.featured,
+        featured,
         views: 0,
         ownerId: input.ownerId,
       },
     });
 
-    if (input.badgeIds.length > 0) {
+    if (badgeIds.length > 0) {
       await tx.businessBadge.createMany({
-        data: input.badgeIds.map((badgeId) => ({ businessId, badgeId })),
+        data: badgeIds.map((badgeId) => ({ businessId, badgeId })),
       });
     }
 
@@ -320,7 +348,7 @@ export async function createBusinessAction(input: BusinessFormData) {
         },
       },
       pricingPackage: {
-        select: { id: true, name: true, billingPeriod: true },
+        select: { id: true, name: true, billingPeriod: true, durationDays: true },
       },
       products: true,
       menuItems: true,
@@ -346,10 +374,22 @@ export async function updateBusinessAction(id: string, input: BusinessFormData) 
   });
 
   await prisma.$transaction(async (tx) => {
-    const gallery = await clampGalleryToPackageLimit(tx, input);
-    const products = normalizeProducts(input);
-    const menuItems = normalizeMenuItems(input);
-    const services = normalizeServices(input);
+    const packageAccess = await getPackageAccess(tx, input.pricingPackageId);
+    const canUseFeature = (feature: PackageFeatureKey) =>
+      packageAccess.featureSet.has(feature);
+    const gallerySource = Array.isArray(input.gallery) ? input.gallery : [];
+    const gallery = canUseFeature("gallery")
+      ? gallerySource.slice(0, packageAccess.galleryLimit)
+      : [];
+    const products = canUseFeature("products") ? normalizeProducts(input) : [];
+    const menuItems = canUseFeature("menu_items")
+      ? normalizeMenuItems(input)
+      : [];
+    const services = canUseFeature("services") ? normalizeServices(input) : [];
+    const badgeIds = canUseFeature("badges") ? input.badgeIds : [];
+    const logo = canUseFeature("branding") ? input.logo || "" : "";
+    const coverImage = canUseFeature("branding") ? input.coverImage || "" : "";
+    const featured = canUseFeature("featured_listing") ? input.featured : false;
 
     await tx.business.update({
       where: { id },
@@ -362,8 +402,8 @@ export async function updateBusinessAction(id: string, input: BusinessFormData) 
         gallery,
         categoryId: input.categoryId,
         pricingPackageId: input.pricingPackageId || null,
-        logo: input.logo || "",
-        coverImage: input.coverImage || "",
+        logo,
+        coverImage,
         location: {
           country: input.country || "",
           city: input.city || "",
@@ -376,15 +416,15 @@ export async function updateBusinessAction(id: string, input: BusinessFormData) 
           website: input.website || "",
         },
         status: input.status as PrismaBusinessStatus,
-        featured: input.featured,
+        featured,
         ownerId: input.ownerId,
       },
     });
 
     await tx.businessBadge.deleteMany({ where: { businessId: id } });
-    if (input.badgeIds.length > 0) {
+    if (badgeIds.length > 0) {
       await tx.businessBadge.createMany({
-        data: input.badgeIds.map((badgeId) => ({ businessId: id, badgeId })),
+        data: badgeIds.map((badgeId) => ({ businessId: id, badgeId })),
       });
     }
 
@@ -449,7 +489,7 @@ export async function updateBusinessAction(id: string, input: BusinessFormData) 
         },
       },
       pricingPackage: {
-        select: { id: true, name: true, billingPeriod: true },
+        select: { id: true, name: true, billingPeriod: true, durationDays: true },
       },
       products: true,
       menuItems: true,
@@ -532,7 +572,7 @@ export async function updateBusinessStatusAction(
         },
       },
       pricingPackage: {
-        select: { id: true, name: true, billingPeriod: true },
+        select: { id: true, name: true, billingPeriod: true, durationDays: true },
       },
       products: true,
       menuItems: true,
