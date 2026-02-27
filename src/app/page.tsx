@@ -4,6 +4,7 @@ import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
 import { BusinessCard, CategoryCard } from "@/components/ui/Components";
 import JsonLd from "@/components/seo/JsonLd";
+import { applyExpiredListingFallbackForApprovedListings } from "@/lib/expired-listing-fallback";
 import { prisma } from "@/lib/prisma";
 import { absoluteUrl, collectionPageSchema, createMetadata } from "@/lib/seo";
 import HomeSearchPanel from "@/components/home/HomeSearchPanel";
@@ -27,6 +28,8 @@ function asString(value: unknown) {
 }
 
 export default async function Home() {
+  await applyExpiredListingFallbackForApprovedListings();
+
   const [featuredBusinessesRaw, categories] = await Promise.all([
     prisma.business.findMany({
       where: { featured: true, status: "approved" },

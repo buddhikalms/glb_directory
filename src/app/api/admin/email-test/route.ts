@@ -14,6 +14,7 @@ const schema = z.object({
     "admin_alert",
     "listing_under_review",
     "payment_received",
+    "plan_upgraded",
     "listing_approved",
     "listing_rejected",
   ]),

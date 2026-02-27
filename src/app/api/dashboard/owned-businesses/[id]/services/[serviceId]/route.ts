@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
+import {
+  getOwnedBusinessPlanContext,
+  getPlanFeatureAccessError,
+} from "@/lib/owned-business-plan";
 import { prisma } from "@/lib/prisma";
 
 const updateServiceSchema = z.object({
@@ -19,12 +23,13 @@ export async function PUT(
   }
 
   const { id, serviceId } = await params;
-  const business = await prisma.business.findFirst({
-    where: { id, ownerId: session.user.id },
-    select: { id: true },
-  });
-  if (!business) {
+  const context = await getOwnedBusinessPlanContext(session.user.id, id);
+  if (!context) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  const featureError = getPlanFeatureAccessError(context, "services");
+  if (featureError) {
+    return NextResponse.json({ error: featureError }, { status: 403 });
   }
 
   const existing = await prisma.service.findFirst({
@@ -62,11 +67,8 @@ export async function DELETE(
   }
 
   const { id, serviceId } = await params;
-  const business = await prisma.business.findFirst({
-    where: { id, ownerId: session.user.id },
-    select: { id: true },
-  });
-  if (!business) {
+  const context = await getOwnedBusinessPlanContext(session.user.id, id);
+  if (!context) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

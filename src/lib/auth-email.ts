@@ -25,6 +25,7 @@ export type EmailTemplateType =
   | "admin_alert"
   | "listing_under_review"
   | "payment_received"
+  | "plan_upgraded"
   | "listing_approved"
   | "listing_rejected";
 
@@ -59,6 +60,14 @@ type SendListingRejectedEmailInput = {
   name?: string | null;
   businessName: string;
   reason?: string | null;
+};
+
+type SendPlanUpgradedEmailInput = {
+  to: string;
+  name?: string | null;
+  businessName: string;
+  newPackageName: string;
+  previousPackageName?: string | null;
 };
 
 function escapeHtml(value: string) {
@@ -443,6 +452,38 @@ export function buildEmailTemplatePreview({
     };
   }
 
+  if (type === "plan_upgraded") {
+    const recipientName = name || "there";
+    const businessName = "Sample Green Business";
+    const oldPackage = "Starter Plan";
+    const newPackage = "Growth Plan";
+    const billingUrl = `${appUrl()}/dashboard/billing`;
+    return {
+      subject: "Your plan has been upgraded",
+      text: `Hi ${recipientName}, your plan for "${businessName}" was upgraded from ${oldPackage} to ${newPackage}.`,
+      html: emailShell({
+        label: "Plan Upgrade",
+        title: "Plan upgraded successfully",
+        recipient: to,
+        contentHtml: `
+        <p style="margin:0 0 14px;">Dear ${escapeHtml(recipientName)},</p>
+        <p style="margin:0 0 12px;">Your listing plan for <strong>${escapeHtml(
+          businessName,
+        )}</strong> has been upgraded.</p>
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="font-size:14px;line-height:22px;margin:0 0 12px;">
+          <tr><td style="padding:2px 14px 2px 0;font-weight:700;">Previous Plan</td><td style="padding:2px 0;">${escapeHtml(oldPackage)}</td></tr>
+          <tr><td style="padding:2px 14px 2px 0;font-weight:700;">New Plan</td><td style="padding:2px 0;">${escapeHtml(newPackage)}</td></tr>
+        </table>
+        <p style="margin:0 0 16px;">
+          <a href="${escapeHtml(
+            billingUrl,
+          )}" style="display:inline-block;background:#16824f;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:700;">Open Billing</a>
+        </p>
+        <p style="margin:0;">Thank you for continuing with Green Directory.</p>`,
+      }),
+    };
+  }
+
   return buildRegistrationWelcomeEmail({ to, name });
 }
 
@@ -577,6 +618,51 @@ export async function sendPaymentReceivedEmail({
     to,
     ...content,
     template: "payment_received",
+  });
+}
+
+export async function sendPlanUpgradedEmail({
+  to,
+  name,
+  businessName,
+  newPackageName,
+  previousPackageName,
+}: SendPlanUpgradedEmailInput) {
+  const recipientName = name || "there";
+  const safeRecipientName = escapeHtml(recipientName);
+  const safeBusinessName = escapeHtml(businessName);
+  const safeNewPackageName = escapeHtml(newPackageName);
+  const safePreviousPackageName = escapeHtml(
+    (previousPackageName || "").trim() || "No previous plan",
+  );
+  const billingUrl = `${appUrl()}/dashboard/billing`;
+  const safeBillingUrl = escapeHtml(billingUrl);
+
+  const content: EmailContent = {
+    subject: "Your plan has been upgraded",
+    text: `Hi ${recipientName}, your plan for "${businessName}" has been upgraded to ${newPackageName}.`,
+    html: emailShell({
+      label: "Plan Upgrade",
+      title: "Plan upgraded successfully",
+      recipient: to,
+      contentHtml: `
+      <p style="margin:0 0 14px;">Dear ${safeRecipientName},</p>
+      <p style="margin:0 0 12px;">Your listing plan for <strong>${safeBusinessName}</strong> has been upgraded.</p>
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="font-size:14px;line-height:22px;margin:0 0 12px;">
+        <tr><td style="padding:2px 14px 2px 0;font-weight:700;">Previous Plan</td><td style="padding:2px 0;">${safePreviousPackageName}</td></tr>
+        <tr><td style="padding:2px 14px 2px 0;font-weight:700;">New Plan</td><td style="padding:2px 0;">${safeNewPackageName}</td></tr>
+      </table>
+      <p style="margin:0 0 16px;">
+        <a href="${safeBillingUrl}" style="display:inline-block;background:#16824f;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:700;">Open Billing</a>
+      </p>
+      <p style="margin:0;">Your new plan features are now active.</p>`,
+    }),
+  };
+
+  await sendEmail({
+    to,
+    ...content,
+    template: "plan_upgraded",
   });
 }
 

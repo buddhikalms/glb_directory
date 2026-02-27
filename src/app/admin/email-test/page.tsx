@@ -9,6 +9,7 @@ type TemplateType =
   | "admin_alert"
   | "listing_under_review"
   | "payment_received"
+  | "plan_upgraded"
   | "listing_approved"
   | "listing_rejected";
 
@@ -26,6 +27,7 @@ const TEMPLATE_TYPES: TemplateType[] = [
   "admin_alert",
   "listing_under_review",
   "payment_received",
+  "plan_upgraded",
   "listing_approved",
   "listing_rejected",
 ];
@@ -36,6 +38,7 @@ const TEMPLATE_LABELS: Record<TemplateType, string> = {
   admin_alert: "Admin Alert",
   listing_under_review: "Listing Under Review",
   payment_received: "Payment Received",
+  plan_upgraded: "Plan Upgraded",
   listing_approved: "Listing Approved",
   listing_rejected: "Listing Rejected",
 };

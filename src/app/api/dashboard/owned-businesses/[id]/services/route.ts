@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
+import {
+  getOwnedBusinessPlanContext,
+  getPlanFeatureAccessError,
+} from "@/lib/owned-business-plan";
 import { prisma } from "@/lib/prisma";
 
 const createServiceSchema = z.object({
@@ -10,10 +14,7 @@ const createServiceSchema = z.object({
 });
 
 async function ensureOwnership(ownerId: string, businessId: string) {
-  return prisma.business.findFirst({
-    where: { id: businessId, ownerId },
-    select: { id: true },
-  });
+  return getOwnedBusinessPlanContext(ownerId, businessId);
 }
 
 export async function GET(
@@ -26,8 +27,8 @@ export async function GET(
   }
 
   const { id } = await params;
-  const owned = await ensureOwnership(session.user.id, id);
-  if (!owned) {
+  const context = await ensureOwnership(session.user.id, id);
+  if (!context) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -48,9 +49,13 @@ export async function POST(
   }
 
   const { id } = await params;
-  const owned = await ensureOwnership(session.user.id, id);
-  if (!owned) {
+  const context = await ensureOwnership(session.user.id, id);
+  if (!context) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  const featureError = getPlanFeatureAccessError(context, "services");
+  if (featureError) {
+    return NextResponse.json({ error: featureError }, { status: 403 });
   }
 
   const body = await request.json();

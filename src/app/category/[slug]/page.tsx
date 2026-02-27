@@ -4,6 +4,8 @@ import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
 import { BusinessCard } from "@/components/ui/Components";
 import JsonLd from "@/components/seo/JsonLd";
+import { applyExpiredListingFallbackForApprovedListings } from "@/lib/expired-listing-fallback";
+import { normalizePackageFeatures } from "@/lib/package-features";
 import { prisma } from "@/lib/prisma";
 import {
   absoluteUrl,
@@ -61,6 +63,8 @@ export default async function CategoryPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  await applyExpiredListingFallbackForApprovedListings();
+
   const { slug } = await params;
   const category = await prisma.category.findUnique({
     where: { slug },
@@ -102,7 +106,7 @@ export default async function CategoryPage({
     },
     include: {
       badges: { include: { badge: true } },
-      pricingPackage: { select: { galleryLimit: true } },
+      pricingPackage: { select: { galleryLimit: true, features: true } },
       reviews: { select: { rating: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -110,12 +114,19 @@ export default async function CategoryPage({
 
   const categoryBusinesses = categoryBusinessesRaw.map((item) => {
     const location = toRecord(item.location);
+    const enabledFeatures = new Set(
+      normalizePackageFeatures(item.pricingPackage?.features),
+    );
+    const canUseBranding = enabledFeatures.has("branding");
+    const canUseGallery = enabledFeatures.has("gallery");
+    const canUseFeaturedListing = enabledFeatures.has("featured_listing");
     const gallery = toStringArray(item.gallery);
     const galleryLimit = item.pricingPackage?.galleryLimit;
-    const visibleGallery =
-      typeof galleryLimit === "number"
+    const visibleGallery = canUseGallery
+      ? typeof galleryLimit === "number"
         ? gallery.slice(0, Math.max(galleryLimit, 0))
-        : gallery;
+        : gallery
+      : [];
     const reviewCount = item.reviews.length;
     const averageRating =
       reviewCount > 0
@@ -128,10 +139,10 @@ export default async function CategoryPage({
       slug: item.slug,
       name: item.name,
       tagline: item.tagline,
-      coverImage: item.coverImage,
+      coverImage: canUseBranding ? item.coverImage : "",
       gallery: visibleGallery,
-      logo: item.logo,
-      featured: item.featured,
+      logo: canUseBranding ? item.logo : "",
+      featured: canUseFeaturedListing ? item.featured : false,
       likes: item.likes,
       categoryId: item.categoryId,
       badges: item.badges.map((b) => b.badgeId),

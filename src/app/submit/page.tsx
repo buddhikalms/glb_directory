@@ -49,6 +49,13 @@ type PricingPackage = {
 const SETTINGS_STORAGE_KEY = "admin.locationProviderSettings";
 const PENDING_LISTING_STORAGE_KEY = "submit.pendingListing";
 
+function parseSustainabilityText(value: string): string[] {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 export default function SubmitPage() {
   const { isAuthenticated, user, login } = useAuth();
   const [pricingPackages, setPricingPackages] = useState<PricingPackage[]>([]);
@@ -92,6 +99,7 @@ export default function SubmitPage() {
     coverImage: "",
     gallery: [] as string[],
     badgeIds: [] as string[],
+    sustainabilityText: "",
     products: [] as ProductInput[],
     menuItems: [] as MenuItemInput[],
     services: [] as ServiceInput[],
@@ -385,7 +393,12 @@ export default function SubmitPage() {
     }
     setSubmitting(true);
     setError("");
-    const payload = { ...formData, selectedPackage, paymentMode };
+    const payload = {
+      ...formData,
+      sustainability: parseSustainabilityText(formData.sustainabilityText),
+      selectedPackage,
+      paymentMode,
+    };
 
     if (selectedPackage) {
       const checkoutRes = await fetch("/api/stripe/create-checkout-session", {
@@ -702,6 +715,18 @@ export default function SubmitPage() {
                   ))}
                 </div>
               )}
+
+              <div className="rounded-lg border-2 border-gray-200 p-3">
+                <p className="text-sm font-semibold mb-2">Sustainability Features (one per line)</p>
+                <textarea
+                  name="sustainabilityText"
+                  value={formData.sustainabilityText}
+                  onChange={onInput}
+                  rows={4}
+                  placeholder={"Plastic-free packaging\nSolar powered operations"}
+                  className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2"
+                />
+              </div>
 
               <div className="flex gap-4">
                 <button type="button" onClick={() => setStep(2)} className="flex-1 rounded-lg border-2 border-emerald-600 px-6 py-3 font-semibold text-emerald-600 hover:bg-emerald-50">Back</button>

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import JsonLd from "@/components/seo/JsonLd";
+import { applyExpiredListingFallbackForApprovedListings } from "@/lib/expired-listing-fallback";
+import { normalizePackageFeatures } from "@/lib/package-features";
 import { prisma } from "@/lib/prisma";
 import { addBillingDuration, type PricingBillingPeriod } from "@/lib/pricing-duration";
 import { absoluteUrl, collectionPageSchema, createMetadata } from "@/lib/seo";
@@ -45,6 +47,8 @@ function calculatePackageExpiryDate(
 }
 
 export default async function DirectoryPage() {
+  await applyExpiredListingFallbackForApprovedListings();
+
   const [businessesRaw, categories, badges] = await Promise.all([
     prisma.business.findMany({
       where: { status: "approved" },
@@ -56,6 +60,7 @@ export default async function DirectoryPage() {
             billingPeriod: true,
             durationDays: true,
             galleryLimit: true,
+            features: true,
           },
         },
         badges: { include: { badge: true } },
@@ -75,12 +80,19 @@ export default async function DirectoryPage() {
 
   const businesses = businessesRaw.map((item) => {
     const location = toRecord(item.location);
+    const enabledFeatures = new Set(
+      normalizePackageFeatures(item.pricingPackage?.features),
+    );
+    const canUseBranding = enabledFeatures.has("branding");
+    const canUseGallery = enabledFeatures.has("gallery");
+    const canUseFeaturedListing = enabledFeatures.has("featured_listing");
     const gallery = toStringArray(item.gallery);
     const galleryLimit = item.pricingPackage?.galleryLimit;
-    const visibleGallery =
-      typeof galleryLimit === "number"
+    const visibleGallery = canUseGallery
+      ? typeof galleryLimit === "number"
         ? gallery.slice(0, Math.max(galleryLimit, 0))
-        : gallery;
+        : gallery
+      : [];
     const reviewCount = item.reviews.length;
     const averageRating =
       reviewCount > 0
@@ -93,10 +105,10 @@ export default async function DirectoryPage() {
       slug: item.slug,
       name: item.name,
       tagline: item.tagline,
-      coverImage: item.coverImage,
+      coverImage: canUseBranding ? item.coverImage : "",
       gallery: visibleGallery,
-      logo: item.logo,
-      featured: item.featured,
+      logo: canUseBranding ? item.logo : "",
+      featured: canUseFeaturedListing ? item.featured : false,
       likes: item.likes,
       categoryId: item.categoryId,
       city: asString(location.city),

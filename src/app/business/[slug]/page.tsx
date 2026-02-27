@@ -10,6 +10,8 @@ import {
   ServiceCard,
 } from "@/components/ui/Components";
 import JsonLd from "@/components/seo/JsonLd";
+import { applyExpiredListingFallbackForBusinessSlug } from "@/lib/expired-listing-fallback";
+import { normalizePackageFeatures } from "@/lib/package-features";
 import { prisma } from "@/lib/prisma";
 import { getBusinessClicks } from "@/lib/business-metrics";
 import { absoluteUrl, breadcrumbSchema, createMetadata } from "@/lib/seo";
@@ -83,6 +85,8 @@ export default async function BusinessPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  await applyExpiredListingFallbackForBusinessSlug(slug);
+
   const business = await prisma.business.findFirst({
     where: {
       slug,
@@ -91,7 +95,7 @@ export default async function BusinessPage({
     include: {
       category: true,
       owner: true,
-      pricingPackage: { select: { galleryLimit: true } },
+      pricingPackage: { select: { galleryLimit: true, features: true } },
       badges: { include: { badge: true } },
       products: true,
       menuItems: true,
@@ -124,13 +128,25 @@ export default async function BusinessPage({
 
   const location = toRecord(business.location);
   const contact = toRecord(business.contact);
+  const enabledFeatures = new Set(
+    normalizePackageFeatures(business.pricingPackage?.features),
+  );
+  const canUseBranding = enabledFeatures.has("branding");
+  const canUseGallery = enabledFeatures.has("gallery");
+  const canUseProducts = enabledFeatures.has("products");
+  const canUseMenuItems = enabledFeatures.has("menu_items");
+  const canUseServices = enabledFeatures.has("services");
+  const canUseBadges = enabledFeatures.has("badges");
   const rawGalleryImages = toStringArray(business.gallery);
   const galleryLimit = business.pricingPackage?.galleryLimit;
-  const galleryImages =
-    typeof galleryLimit === "number"
+  const galleryImages = canUseGallery
+    ? typeof galleryLimit === "number"
       ? rawGalleryImages.slice(0, Math.max(galleryLimit, 0))
-      : rawGalleryImages;
-  const heroImage = business.coverImage || galleryImages[0] || "";
+      : rawGalleryImages
+    : [];
+  const coverImage = canUseBranding ? business.coverImage : "";
+  const logo = canUseBranding ? business.logo : "";
+  const heroImage = coverImage || galleryImages[0] || "";
   const sustainability = toStringArray(business.sustainability);
   const reviews = business.reviews;
   const averageRating =
@@ -156,7 +172,7 @@ export default async function BusinessPage({
     name: business.name,
     description: business.description,
     url: businessUrl,
-    image: [heroImage, business.logo, ...galleryImages].filter(Boolean),
+    image: [heroImage, logo, ...galleryImages].filter(Boolean),
     telephone: asString(contact.phone) || undefined,
     email: asString(contact.email) || undefined,
     sameAs: website ? [website] : undefined,
@@ -210,9 +226,9 @@ export default async function BusinessPage({
           <div className="max-w-6xl mx-auto px-4 py-8">
             <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-end mb-6">
               <div className="relative -mt-32">
-                {business.logo ? (
+                {logo ? (
                   <Image
-                    src={business.logo}
+                    src={logo}
                     alt={business.name}
                     width={160}
                     height={160}
@@ -240,7 +256,7 @@ export default async function BusinessPage({
                   <span className="text-gray-300">•</span>
                   <span>{reviews.length} reviews</span>
                 </div>
-                {business.badges.length > 0 && (
+                {canUseBadges && business.badges.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-4">
                     {business.badges.map((item) => (
                       <div
@@ -356,7 +372,11 @@ export default async function BusinessPage({
             <h2 className="font-display text-2xl font-bold text-gray-900 mb-4">
               Products
             </h2>
-            {business.products.length > 0 ? (
+            {!canUseProducts ? (
+              <p className="text-gray-600">
+                Products are not available on the current listing plan.
+              </p>
+            ) : business.products.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {business.products.map((product) => (
                   <ProductCard key={product.id} product={product as any} />
@@ -373,7 +393,11 @@ export default async function BusinessPage({
             <h2 className="font-display text-2xl font-bold text-gray-900 mb-4">
               Menu
             </h2>
-            {business.menuItems.length > 0 ? (
+            {!canUseMenuItems ? (
+              <p className="text-gray-600">
+                Menu items are not available on the current listing plan.
+              </p>
+            ) : business.menuItems.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {business.menuItems.map((item) => (
                   <MenuItemCard
@@ -398,7 +422,11 @@ export default async function BusinessPage({
             <h2 className="font-display text-2xl font-bold text-gray-900 mb-4">
               Services
             </h2>
-            {business.services.length > 0 ? (
+            {!canUseServices ? (
+              <p className="text-gray-600">
+                Services are not available on the current listing plan.
+              </p>
+            ) : business.services.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {business.services.map((service) => (
                   <ServiceCard key={service.id} service={service as any} />

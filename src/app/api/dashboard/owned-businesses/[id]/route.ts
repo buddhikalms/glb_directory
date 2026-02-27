@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
+import { getOwnedBusinessPlanContext } from "@/lib/owned-business-plan";
 import { prisma } from "@/lib/prisma";
 
 const updateBusinessSchema = z.object({
@@ -10,7 +11,6 @@ const updateBusinessSchema = z.object({
   description: z.string().trim().min(1).optional(),
   seoKeywords: z.string().trim().optional(),
   categoryId: z.string().trim().optional(),
-  pricingPackageId: z.string().trim().optional().nullable(),
   logo: z.string().trim().optional(),
   coverImage: z.string().trim().optional(),
   gallery: z.array(z.string().trim()).optional(),
@@ -38,8 +38,8 @@ export async function GET(
   }
 
   const { id } = await params;
-  const owned = await ensureOwnership(session.user.id, id);
-  if (!owned) {
+  const context = await getOwnedBusinessPlanContext(session.user.id, id);
+  if (!context) {
     return NextResponse.json(
       { error: "Listing not found or not owned by current user." },
       { status: 404 },
@@ -66,8 +66,8 @@ export async function PUT(
   }
 
   const { id } = await params;
-  const owned = await ensureOwnership(session.user.id, id);
-  if (!owned) {
+  const context = await getOwnedBusinessPlanContext(session.user.id, id);
+  if (!context) {
     return NextResponse.json(
       { error: "Listing not found or not owned by current user." },
       { status: 404 },
@@ -84,14 +84,29 @@ export async function PUT(
   }
 
   const { badgeIds, ...data } = parsed.data;
+  const updateData = { ...data };
+  const canUseBranding = context.enabledFeatures.has("branding");
+  const canUseGallery = context.enabledFeatures.has("gallery");
+  const canUseBadges = context.enabledFeatures.has("badges");
+
+  if (!canUseBranding) {
+    delete updateData.logo;
+    delete updateData.coverImage;
+  }
+
+  if (!canUseGallery) {
+    delete updateData.gallery;
+  } else if (Array.isArray(updateData.gallery)) {
+    updateData.gallery = updateData.gallery.slice(0, context.galleryLimit);
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.business.update({
       where: { id },
-      data,
+      data: updateData,
     });
 
-    if (badgeIds) {
+    if (badgeIds && canUseBadges) {
       await tx.businessBadge.deleteMany({ where: { businessId: id } });
       if (badgeIds.length > 0) {
         await tx.businessBadge.createMany({

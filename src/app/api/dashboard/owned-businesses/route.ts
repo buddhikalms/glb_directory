@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { applyExpiredListingFallbackForOwner } from "@/lib/expired-listing-fallback";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
@@ -7,6 +8,8 @@ export async function GET() {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  await applyExpiredListingFallbackForOwner(session.user.id);
 
   const businesses = await prisma.business.findMany({
     where: { ownerId: session.user.id },
@@ -18,6 +21,13 @@ export async function GET() {
       status: true,
       tagline: true,
       coverImage: true,
+      pricingPackageId: true,
+      pricingPackage: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
       createdAt: true,
     },
   });
